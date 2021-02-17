@@ -1,0 +1,489 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;Program name: "Numeric Decomposition".  This program accepts a base 10 floating point number from stdin and decomposes it  *
+     3                                  ;into standard components: sign big, stored exponent, and significand.  Lastly, the number is displayed in IEEE 754 format. *
+     4                                  ;Copyright (C) 2014  Floyd Holliday                                               *
+     5                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     6                                  ;version 3 as published by the Free Software Foundation.                                                                    *
+     7                                  ;This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied         *
+     8                                  ;warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+     9                                  ;A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    10                                  ;****************************************************************************************************************************
+    11                                  
+    12                                  
+    13                                  
+    14                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3=========4=========5=========6=========7**
+    15                                  ;Author information
+    16                                  ;  Author name: Floyd Holliday
+    17                                  ;  Author email: holliday@fullerton.edu
+    18                                  ;  Author location: Fullerton, CA
+    19                                  ;Program information
+    20                                  ;  Short title: Numeric Decomposition
+    21                                  ;  Purpose: This program will demonstrate to the CPSC240 class how to "pass back" multiple values from an X86 subprogram to a C program that called the X86 subprogram.
+    22                                  ;  Status: Testing phase. No errors discovered after a few dozen test cases. 
+    23                                  ;  Program begun: 2014-Dec-5
+    24                                  ;  Program completed and tested: 2014-Dec-08
+    25                                  ;  Comments and bash instructions upgraded 2019-Dec-16
+    26                                  ;  Project files: numericdecomposition.c, numericmain.asm
+    27                                  ;Module information
+    28                                  ;  File name: numericmain.asm
+    29                                  ;  Language: X86
+    30                                  ;  Syntax: Intel
+    31                                  ;  Date completed: 2014-Dec-8
+    32                                  ;  Comments and bash file updated : 2019-December-16
+    33                                  ;  Purpose: This module will decompose a floating point number (64 bits) into its fundamental components according to the IEEE-754 standard.
+    34                                  ;  Status: This module is simple X86 code, and has been tested extensively.
+    35                                  ;  Future enhancements: Implement the capability of correctly processing subnormal inputs.
+    36                                  ;Translator information (Tested in Bash shell)
+    37                                  ;  Gnu compiler: gcc -c -m64 -Wall -std=c11 -o numeric_d_com.o -no-pie numericdecomposition.c
+    38                                  ;  Gnu linker:   gcc -m64 -std=c11 -no-pie -o decomposition.out numeric.o numeric_d_com.o
+    39                                  ;  Execute:      ./decomp.out
+    40                                  ;References and credits
+    41                                  ;  No references: this module is standard PC assembly language
+    42                                  ;Format information
+    43                                  ;  Page width: 172 columns
+    44                                  ;  Begin comments: 61
+    45                                  ;  Optimal print specification: Landscape, 7 points, monospace, 8½x11 paper
+    46                                  
+    47                                  
+    48                                  
+    49                                  ;===== Begin area for source code =========================================================================================================================================
+    50                                  
+    51                                  extern printf                                               ;This subprogram will be linked later
+    52                                  
+    53                                  extern scanf                                                ;This subprogram will be linked later
+    54                                  
+    55                                  global numericdecomposition                                 ;Make this program callable by other programs.
+    56                                  
+    57                                  segment .data                                               ;Initialized data are placed in this segment
+    58                                  
+    59                                  align 16                                                    ;Start new data on a 16-byte boundary
+    60                                  
+    61                                  ;===== Declare some messages ==============================================================================================================================================
+    62                                  
+    63 00000000 546869732070726F67-     welcome db "This program will perform a simple operation on the AVX registers.", 10, 0
+    63 00000009 72616D2077696C6C20-
+    63 00000012 706572666F726D2061-
+    63 0000001B 2073696D706C65206F-
+    63 00000024 7065726174696F6E20-
+    63 0000002D 6F6E20746865204156-
+    63 00000036 582072656769737465-
+    63 0000003F 72732E0A00         
+    64                                  
+    65 00000044 456E74657220616E20-     instruction db "Enter an 8-byte floating point number (normal or subnormal): ", 0
+    65 0000004D 382D6279746520666C-
+    65 00000056 6F6174696E6720706F-
+    65 0000005F 696E74206E756D6265-
+    65 00000068 7220286E6F726D616C-
+    65 00000071 206F72207375626E6F-
+    65 0000007A 726D616C293A2000   
+    66                                  
+    67 00000082 5468616E6B20796F75-     echo db "Thank you.  The number you entered was %lf.", 10, 0
+    67 0000008B 2E2020546865206E75-
+    67 00000094 6D62657220796F7520-
+    67 0000009D 656E74657265642077-
+    67 000000A6 617320256C662E0A00 
+    68                                  
+    69 000000AF 546865205838362073-     farewell db "The X86 subprogram is now terminating. Further messages are produced by the caller.", 10, 0
+    69 000000B8 756270726F6772616D-
+    69 000000C1 206973206E6F772074-
+    69 000000CA 65726D696E6174696E-
+    69 000000D3 672E20467572746865-
+    69 000000DC 72206D657373616765-
+    69 000000E5 73206172652070726F-
+    69 000000EE 647563656420627920-
+    69 000000F7 7468652063616C6C65-
+    69 00000100 722E0A00           
+    70                                  
+    71 00000104 546865207873617665-     xsavenotsupported.notsupportedmessage db "The xsave instruction is not supported in this microprocessor.", 10
+    71 0000010D 20696E737472756374-
+    71 00000116 696F6E206973206E6F-
+    71 0000011F 7420737570706F7274-
+    71 00000128 656420696E20746869-
+    71 00000131 73206D6963726F7072-
+    71 0000013A 6F636573736F722E0A 
+    72 00000143 486F77657665722C20-                                           db "However, processing will continue without backing up state component data", 10, 0
+    72 0000014C 70726F63657373696E-
+    72 00000155 672077696C6C20636F-
+    72 0000015E 6E74696E7565207769-
+    72 00000167 74686F757420626163-
+    72 00000170 6B696E672075702073-
+    72 00000179 7461746520636F6D70-
+    72 00000182 6F6E656E7420646174-
+    72 0000018B 610A00             
+    73                                  
+    74                                  ;===== Declare formats for output =========================================================================================================================================
+    75                                  
+    76 0000018E 257300                  stringformat db "%s", 0
+    77                                  
+    78 00000191 257300                  xsavenotsupported.stringformat db "%s", 0
+    79                                  
+    80 00000194 256C6600                basicfloatinputformat db "%lf", 0
+    81                                  
+    82                                  segment .bss                                                ;Uninitialized data are declared in this segment
+    83                                  
+    84                                  align 64                                                    ;Ask that the next data declaration start on a 64-byte boundary.
+    85 00000000 <res 00000340>          backuparea resb 832                                         ;Create an array for backup storage having 832 bytes.
+    86                                  
+    87 00000340 <res 00000035>          binarray resb 53                                            ;Reserve space for 52 bits held as ascii values or 0 or 1, and one more byte for the null terminator.
+    88                                  
+    89                                  segment .text                                               ;Instructions are placed in this segment
+    90                                  
+    91                                  numericdecomposition:                                       ;Execution of this program will begin here.
+    92                                  
+    93                                  ;======== Backup Section ==================================================================================================================================================
+    94                                  ;There are three concurrent objectives here.  First, when this X86 subprogram exits all registers (with minor exceptions: rax, rsp, rflags) must hold the same data they
+    95                                  ;held when this subprogram was called.  The reason for this is to protect the data of the caller.  This subprogram will return to the caller the exact same data values
+    96                                  ;that the caller had when this subprogram was called.
+    97                                  
+    98                                  ;The second objective relates to passing data from the caller to this called subprogram.  The data passing registers are rdi, rsi, rdx, rcx, r8, r9, and xmm0 through xmm7.
+    99                                  ;It is important that these registers arrive at the application section with values unchanged.
+   100                                  
+   101                                  ;The third objective is to allow older machines without the xsave and xrstor instructions to continue processing the application even if backup of registers via xsave is
+   102                                  ;not possible. 
+   103                                  
+   104                                  ; 1. =========== Back up all the GPRs whether used in this program or not =================================================================================================
+   105                                  
+   106 00000000 55                      push       rbp                                              ;Save a copy of the stack base pointer
+   107 00000001 4889E5                  mov        rbp, rsp                                         ;This will preserve the linked list of base pointers.
+   108 00000004 53                      push       rbx                                              ;Back up rbx
+   109 00000005 51                      push       rcx                                              ;Back up rcx
+   110 00000006 52                      push       rdx                                              ;Back up rdx
+   111 00000007 56                      push       rsi                                              ;Back up rsi
+   112 00000008 57                      push       rdi                                              ;Back up rdi
+   113 00000009 4150                    push       r8                                               ;Back up r8
+   114 0000000B 4151                    push       r9                                               ;Back up r9
+   115 0000000D 4152                    push       r10                                              ;Back up r10
+   116 0000000F 4153                    push       r11                                              ;Back up r11
+   117 00000011 4154                    push       r12                                              ;Back up r12
+   118 00000013 4155                    push       r13                                              ;Back up r13
+   119 00000015 4156                    push       r14                                              ;Back up r14
+   120 00000017 4157                    push       r15                                              ;Back up r15
+   121 00000019 9C                      pushf                                                       ;Back up rflags
+   122                                  
+   123                                  ; 2. ========== Back up those xmm registers numbered 0 through 7 ==========================================================================================================
+   124                                  
+   125 0000001A 6A00                    push qword 0                                                ;Subprograms in external C or C++ libraries are known
+   126 0000001C F20F113C24              movsd      [rsp], xmm7                                      ;to destruct the data in the xmm registers numbered 0 thru 7.
+   127 00000021 6A00                    push qword 0
+   128 00000023 F20F113424              movsd      [rsp], xmm6
+   129 00000028 6A00                    push qword 0
+   130 0000002A F20F112C24              movsd      [rsp], xmm5
+   131 0000002F 6A00                    push qword 0
+   132 00000031 F20F112424              movsd      [rsp], xmm4
+   133 00000036 6A00                    push qword 0
+   134 00000038 F20F111C24              movsd      [rsp], xmm3
+   135 0000003D 6A00                    push qword 0
+   136 0000003F F20F111424              movsd      [rsp], xmm2
+   137 00000044 6A00                    push qword 0
+   138 00000046 F20F110C24              movsd      [rsp], xmm1
+   139 0000004B 6A00                    push qword 0
+   140 0000004D F20F110424              movsd      [rsp], xmm0
+   141                                  
+   142                                  ; 3. ========== Determine if this computer supports the two instructions xsave and xrstor =================================================================================
+   143                                  ;Use the cpuid instruction to discover if this computer support xsave and xrstor
+   144                                  
+   145                                  ;Precondition for using cpuid: rax holds 1.
+   146 00000052 B801000000              mov        rax, 1
+   147                                  
+   148 00000057 0FA2                    cpuid                                                       ;Execute the cpuid instruction.
+   149                                  
+   150                                  ;Postconditions: If rcx[26]==1 then xsave is supported.  If rcx[26]==0 then xsave is not supported.
+   151                                  
+   152                                  ;Extract bit #26 and test it
+   153                                  
+   154 00000059 4881E100000004          and        rcx, 0x0000000004000000                          ;The mask 0x0000000004000000 has a 1 in position #26.  Now rcx is either all zeros or
+   155                                                                                              ;has a single 1 in position #26 and zeros everywhere else.
+   156 00000060 4883F900                cmp        rcx, 0                                           ;Is (rcx == 0)?
+   157 00000064 7424                    je         xsavenotsupported                                ;Skip the section that backs up state component data.
+   158                                  
+   159                                  ; 4. ========== Call the function to obtain the bitmap of state components ================================================================================================
+   160                                  
+   161                                  ;Preconditions
+   162 00000066 B80D000000              mov        rax, 0x000000000000000d                          ;Place 13 in rax.  This number is provided in the Intel manual.
+   163 0000006B B900000000              mov        rcx, 0                                           ;0 is parameter for subfunction 0
+   164                                  
+   165                                  ;Call the function
+   166 00000070 0FA2                    cpuid                                                       ;cpuid is an essential function that returns information about the cpu
+   167                                  
+   168                                  ;Postconditions (There are 2 of these):
+   169                                  
+   170                                  ;1.  edx:eax is a bit map of state components managed by xsave.  At the time this program was written (2014 June) there were exactly 3 state components.  Therefore, bits
+   171                                  ;    numbered 2, 1, and 0 are important for current cpu technology.
+   172                                  ;2.  ecx holds the number of bytes required to store all the data of enabled state components. [Post condition 2 is not used in this program.]
+   173                                  ;This program assumes that under current technology (year 2014) there are at most three state components having a maximum combined data storage requirement of 832 bytes.
+   174                                  ;Therefore, the value in ecx will be less than or equal to 832.
+   175                                  
+   176                                  ;Precaution: As an insurance against a future time when there will be more than 3 state components in a processor of the X86 family the state component bitmap is masked to
+   177                                  ;allow only 3 state components maximum.
+   178                                  
+   179 00000072 4883E007                and        rax, 0x0000000000000007                          ;Bits 63-3 become zeros
+   180 00000076 4831D2                  xor        rdx, rdx                                         ;rdx is zeroed out.
+   181                                  
+   182                                  ; 5A ========== Perform the state component backup ========== Perform section 5A or 5B but not both =======================================================================
+   183                                  
+   184                                  ;The instruction xsave will save those state components with on bits in the bitmap.  At this point edx:eax continues to hold the state component bitmap.
+   185                                  
+   186                                  ;Precondition: edx:eax holds the state component bit map.  This condition has been met by the two pops preceding this statement.
+   187 00000079 0FAE2425[00000000]      xsave      [backuparea]                                     ;All the data of state components managed by xsave have been written to backuparea.
+   188                                  
+   189 00000081 49C7C7FFFFFFFF          mov        r15, -1                                          ;Set a flag (-1 = true) to indicate that state component data were backed up.
+   190 00000088 EB24                    jmp        backupconclusion
+   191                                  
+   192                                  ; 5B. ========== Show message xsave is not supported on this platform =====================================================================================================
+   193                                  xsavenotsupported:
+   194                                  
+   195 0000008A B800000000              mov        rax, 0
+   196 0000008F 48BF-                   mov        rdi, .stringformat
+   196 00000091 [9101000000000000] 
+   197 00000099 48BE-                   mov        rsi, .notsupportedmessage                        ;"The xsave instruction is not supported in this microprocessor.
+   197 0000009B [0401000000000000] 
+   198 000000A3 E8(00000000)            call       printf
+   199                                  
+   200 000000A8 41BF00000000            mov        r15, 0                                           ;Set a flag (0 = false) to indicate that state component data were not backed up.
+   201                                  
+   202                                  backupconclusion: ;Insure that the parameter passing registers have their original values.
+   203                                  
+   204                                  ;Restore values to the 8 registers that pass in float type values.
+   205 000000AE F20F100424              movsd      xmm0, [rsp]
+   206 000000B3 58                      pop        rax
+   207 000000B4 F20F100C24              movsd      xmm1, [rsp]
+   208 000000B9 58                      pop        rax
+   209 000000BA F20F101424              movsd      xmm2, [rsp]
+   210 000000BF 58                      pop        rax
+   211 000000C0 F20F101C24              movsd      xmm3, [rsp]
+   212 000000C5 58                      pop        rax
+   213 000000C6 F20F102424              movsd      xmm4, [rsp]
+   214 000000CB 58                      pop        rax
+   215 000000CC F20F102C24              movsd      xmm5, [rsp]
+   216 000000D1 58                      pop        rax
+   217 000000D2 F20F103424              movsd      xmm6, [rsp]
+   218 000000D7 58                      pop        rax
+   219 000000D8 F20F103C24              movsd      xmm7, [rsp]
+   220 000000DD 58                      pop        rax
+   221                                  
+   222                                  ;Restore values to the 6 registers that pass in integer type values.  The values in other GPRs are of no concern to this application.
+   223 000000DE 488B7C2448              mov        rdi, [rsp+72]
+   224 000000E3 488B742450              mov        rsi, [rsp+80]
+   225 000000E8 488B542458              mov        rdx, [rsp+88]
+   226 000000ED 488B4C2460              mov        rcx, [rsp+96]
+   227 000000F2 4C8B442440              mov        r8,  [rsp+64]
+   228 000000F7 4C8B4C2438              mov        r9,  [rsp+56]
+   229                                  
+   230                                  ;Save on the stack the flag that indicates if xsave is implemented (-1) in the current processor or not implemented (0) in the current processor.
+   231 000000FC 4157                    push       r15                                              ;Save the flag on the stack and thereby make r15 available for other uses.
+   232                                  
+   233                                  ;==========================================================================================================================================================================
+   234                                  ;===== End of all register backup =========================================================================================================================================
+   235                                  ;==========================================================================================================================================================================
+   236                                  
+   237                                  
+   238                                  ;==========================================================================================================================================================================
+   239                                  ;===== Begin the application here: decompose an 8-byte floating point number ==============================================================================================
+   240                                  ;==========================================================================================================================================================================
+   241                                  
+   242                                  ;===== Very important: back up into a safe place the four parameters (values) passed here by the caller. =================================================================+
+   243 000000FE 4150                    push       r8                                               ;fifth CCC parameter: the significand
+   244 00000100 51                      push       rcx                                              ;fourth CCC parameter: the hidden bit
+   245 00000101 52                      push       rdx                                              ;third CCC parameter: the true exponent
+   246 00000102 56                      push       rsi                                              ;second CCC parameter: the sign of the quadword: either '+' or '-'.
+   247 00000103 57                      push       rdi                                              ;first CCC parameter: the complete quadword received from the keyboard
+   248                                  
+   249                                  ;===== Show the prompt message ============================================================================================================================================
+   250                                  
+   251 00000104 B800000000              mov qword  rax, 0                                           ;No data from SSE or AVX will be printed
+   252 00000109 48BF-                   mov        rdi, stringformat                                ;"%s"
+   252 0000010B [8E01000000000000] 
+   253 00000113 48BE-                   mov        rsi, instruction                                 ;"Enter an 8-byte normal number (not subnormal): "
+   253 00000115 [4400000000000000] 
+   254 0000011D E8(00000000)            call       printf                                           ;Call a library function to make the output
+   255                                  
+   256                                  ;===== Obtain a normal floating point number from the standard input device and store a copy in r15 =======================================================================
+   257                                  
+   258 00000122 6A00                    push qword 0                                                ;Push 8 bytes to get off the 16 byte boundary, and therefore the next push will land on the 16-byte boundary.
+   259 00000124 6A00                    push qword 0                                                ;Reserve 8 bytes of storage for the incoming number
+   260 00000126 B800000000              mov qword  rax, 0                                           ;SSE is not involved in this scanf operation
+   261 0000012B 48BF-                   mov        rdi, basicfloatinputformat                       ;"%lf"
+   261 0000012D [9401000000000000] 
+   262 00000135 4889E6                  mov        rsi, rsp                                         ;Give scanf a pointer to the reserved storage
+   263 00000138 E8(00000000)            call       scanf                                            ;Call a library function to do the input work
+   264 0000013D 415F                    pop        r15                                              ;A copy of the input quadword is in r15.  This copy will be keep intact through the remainder of the run.
+   265 0000013F 58                      pop        rax                                              ;Reverse the boundary push.
+   266                                  
+   267                                  ;===== Provide a copy of the input quadword for the caller program ========================================================================================================
+   268                                  
+   269 00000140 58                      pop        rax                                              ;rax holds the first parameter passed here from the caller.
+   270 00000141 4C8938                  mov        [rax], r15                                       ;Place a copy of the input number in heap space where the caller has a pointer to this number.
+   271                                                                                              ;The caller already has access to this number at this point.  There is no need to wait for the ret instruction.
+   272                                  
+   273                                  ;===== Extract the sign of the quadword in r15 ============================================================================================================================
+   274                                  
+   275 00000144 4D89FE                  mov        r14, r15                                         ;Make a second copy of the quadword inputted by the user.
+   276                                  
+   277                                  ;The next two instructions are a replacement for "and r14, 0x8000000000000000", which would not assemble.
+   278 00000147 49BD00000000000000-     mov        r13, 0x8000000000000000                          ;Place mask into r13
+   278 00000150 80                 
+   279 00000151 4D21EE                  and        r14, r13                                         ;Zero out all bits except the sign bit.
+   280                                  
+   281                                  
+   282 00000154 4983FE00                cmp        r14, qword 0                                     ;Find out if the sign is '+' or '-'
+   283 00000158 7408                    je         positive                                         ;If the sign is positive then go to the positive section.
+   284 0000015A 41BD2D000000            mov        r13, 0x000000000000002D                          ;2D is ascii for '-'
+   285 00000160 EB06                    jmp        signcontinue
+   286                                  positive:
+   287 00000162 41BD2B000000            mov        r13, 0x000000000000002B                          ;2B is ascii for '+'
+   288                                  signcontinue:
+   289 00000168 58                      pop        rax                                              ;rax holds the second parameter passed from the caller.
+   290 00000169 4C8928                  mov        [rax], r13                                       ;The caller already has access the the sign of the inputted quadword number.
+   291                                  
+   292                                  ;===== Extract the exponent of the quadword in r15 ========================================================================================================================
+   293                                  
+   294 0000016C 4D89FE                  mov        r14, r15                                         ;Place a copy of the quadword in r14.
+   295 0000016F 49D1E6                  shl        r14, 1                                           ;Remove the sign bit from the number in r14
+   296 00000172 49C1EE35                shr        r14, 53                                          ;Remove the significand from the number in r14.  The stored exponent remains in r14
+   297 00000176 4983FE00                cmp        r14, 0                                           ;Is (stored exponent == zero)?
+   298 0000017A 7409                    je         subnormalprocess
+   299                                  normalprocess:                                              ;The next two instruction execute if the inputted number is normal.
+   300 0000017C 4981EEFF030000                     sub r14, 0x00000000000003FF                      ;Subtract the bias number from the stored exponent.  Now r14 holds the true exponent.
+   301 00000183 EB07                               jmp storetrueexponent
+   302                                  subnormalprocess:                                           ;The next instruction executes if the inputted number is subnormal.
+   303 00000185 49C7C602FCFFFF                     mov r14, -1022                                   ;r14 holds the 64-bit base number, which is the true exponent for subnormal numbers.
+   304                                  storetrueexponent:
+   305 0000018C 58                      pop        rax                                              ;Get a copy of the third parameter passed here from the driver.
+   306 0000018D 4C8930                  mov        [rax], r14                                       ;Copy the true exponent into heap space where the caller has a pointer to that space.
+   307                                                                                              ;The caller already has (access to) the true exponent.
+   308                                  
+   309                                  ;===== Determine the hidden bit ===========================================================================================================================================
+   310                                  
+   311                                  ;r14 continues to hold the true exponent.  If the true exponent is -1022 then the hidden bit is 0 otherwise it is 1.
+   312 00000190 4981FE02FCFFFF          cmp        r14, -1022                                       ;Is (r14 == -1022)?
+   313 00000197 7408                    je         hiddenbitiszero
+   314 00000199 41BD01000000                       mov r13, 1                                       ;The hidden bit in this case is 1.
+   315 0000019F EB06                               jmp storehiddenbit
+   316                                  hiddenbitiszero:
+   317 000001A1 41BD00000000                       mov r13, 0                                       ;The hidden bit in this case is 0.
+   318                                  storehiddenbit:
+   319 000001A7 58                      pop        rax
+   320 000001A8 4C8928                  mov        [rax], r13                                       ;Copy the hidden bit into heap space where the caller has a pointer to that space.
+   321                                  
+   322                                  ;===== Extract the significand of the quadword in r15 =====================================================================================================================
+   323                                  
+   324 000001AB 4D89FE                  mov        r14, r15                                         ;Make a second copy of the quadword inputted by the user.
+   325                                  
+   326                                  ;The next two instructions are a replacement for and "r14, 0x0000FFFFFFFFFFFF", which would not assemble.
+   327 000001AE 49BDFFFFFFFFFFFF0F-     mov        r13, 0x000FFFFFFFFFFFFF
+   327 000001B7 00                 
+   328 000001B8 4D21EE                  and        r14, r13                                         ;Zero out every thing except the significand.
+   329                                  
+   330 000001BB 58                      pop        rax                                              ;Get a copy of the fourth parameter passed here from the driver.
+   331 000001BC 4C8930                  mov        [rax], r14                                       ;Copy the significand into heap space where the caller has a pointer to that space.
+   332                                                                                              ;Now the caller already has (access to) the significand.
+   333                                  
+   334                                  ;===== Convert the significand to a byte array of zeros and ones ==========================================================================================================
+   335                                  
+   336                                  ;The significand is currently in r14[51-0].  Establish a mask with a 1 at bit 51 and zeros elsewhere.
+   337 000001BF 49BD00000000000008-     mov        r13, 0x0008000000000000                          ;r13 is the mask.
+   337 000001C8 00                 
+   338 000001C9 B900000000              mov        rcx, 0                                           ;The loop counter begins at 0.  Iterations continue while rcx is less than 52
+   339                                  beginloop:
+   340 000001CE 4D89F4                             mov r12, r14                                     ;r12 receives a new copy of the significand with each iteration.
+   341 000001D1 4D21EC                             and r12, r13                                     ;Isolate one bit in r12
+   342 000001D4 4983FC00                           cmp r12, 0                                       ;Is r12 equal to zero?
+   343 000001D8 7409                               je  zerobit                                      ;If the special bit in r12 is zero then go to a place to set a zero in the array.
+   344 000001DA C681[40030000]31                   mov [binarray+1*rcx], byte '1'                   ;Place '1' in the array
+   345 000001E1 EB07                               jmp endif
+   346                                             zerobit:
+   347 000001E3 C681[40030000]30                   mov [binarray+1*rcx], byte '0'                   ;Place '0' in the array
+   348                                             endif:
+   349 000001EA 48FFC1                             inc rcx                                          ;rcx is the loop control variable
+   350 000001ED 49D1ED                             shr r13, 1                                       ;The single 1 bit in r13 move right one space with each iteration.
+   351 000001F0 4883F934                           cmp rcx, 52                                      ;52 is the number of bits in the significand and the number of iterations of this loop.
+   352 000001F4 7CD8                               jl  beginloop
+   353                                  endloop:
+   354 000001F6 C60425[74030000]00      mov        [binarray+1*52], byte 0                          ;Append the null terminator at the end of the char array.
+   355                                  ;The array binarray has been filled with ascii values representing the bits in the significand.  The starting address of this array will be returned to the caller when the
+   356                                  ;return instruction is executed.
+   357                                  
+   358                                  
+   359                                  ;===== Say good-bye =======================================================================================================================================================
+   360                                  ;Finally, we arrive at the end of this program Numeric Decomposition.
+   361                                  
+   362 000001FE 48BF-                   mov qword rdi, stringformat                                 ;A little good-bye message will be outputted.
+   362 00000200 [8E01000000000000] 
+   363 00000208 48BE-                   mov qword rsi, farewell                                     ;"The X86 subprogram is now terminating. Further messages are produced by the caller."
+   363 0000020A [AF00000000000000] 
+   364 00000212 B800000000              mov qword rax, 0                                            ;Zero says that no data values from SSE registers are used by printf
+   365 00000217 E8(00000000)            call printf
+   366                                  
+   367                                  ;===== Save a copy of the value that will be returned to the caller =======================================================================================================
+   368                                  
+   369                                  ;This section is empty.  The starting address of the array binarray will be copied to rax after the State Component Restore.
+   370                                  
+   371                                  ;Now the stack is in the same state as when the application area was entered.  It is safe to leave this application area.
+   372                                  
+   373                                  ;==========================================================================================================================================================================
+   374                                  ;End of application area: Numeric Decomposition
+   375                                  ;==========================================================================================================================================================================
+   376                                  
+   377                                  
+   378                                  
+   379                                  ;==========================================================================================================================================================================
+   380                                  ;===== Begin State Component Restore ======================================================================================================================================
+   381                                  ;==========================================================================================================================================================================
+   382                                  
+   383                                  ;===== Check the flag to determine if state components were really backed up ==============================================================================================
+   384                                  
+   385 0000021C 5B                      pop        rbx                                              ;Obtain a copy of the flag that indicates state component backup or not.
+   386                                  
+   387 0000021D 4883FB00                cmp        rbx, 0                                           ;If there was no backup of state components then jump past the restore section.
+   388 00000221 741B                    je         setreturnvalue                                   ;Go to set up the return value.
+   389                                  
+   390                                  ;Continue with restoration of state components;
+   391                                  
+   392                                  ;Precondition: edx:eax must hold the state component bitmap.  Therefore, go get a new copy of that bitmap.
+   393                                  
+   394                                  ;Preconditions for obtaining the bitmap from the cpuid instruction
+   395 00000223 B80D000000              mov        rax, 0x000000000000000d                          ;Place 13 in rax.  This number is provided in the Intel manual
+   396 00000228 B900000000              mov        rcx, 0                                           ;0 is parameter for subfunction 0
+   397                                  
+   398                                  ;Call the function
+   399 0000022D 0FA2                    cpuid                                                       ;cpuid is an essential function that returns information about the cpu
+   400                                  
+   401                                  ;Postcondition: The bitmap in now in edx:eax
+   402                                  
+   403                                  ;Future insurance: Make sure the bitmap is limited to a maximum of 3 state components.
+   404 0000022F 4883E207                and        rdx, 0x00000000000000007                         ;Zero out all bits except bits numbered 2, 1, and 0.
+   405 00000233 4831D2                  xor        rdx, rdx                                         ;Zero out all of rdx
+   406                                  
+   407 00000236 0FAE2C25[00000000]      xrstor     [backuparea]
+   408                                  
+   409                                  ;==========================================================================================================================================================================
+   410                                  ;===== End State Component Restore ========================================================================================================================================
+   411                                  ;==========================================================================================================================================================================
+   412                                  
+   413                                  
+   414                                  setreturnvalue: ;=========== Set the value to be returned to the caller ===================================================================================================
+   415                                  
+   416 0000023E 48B8-                   mov        rax, binarray                                    ;The caller will receive the starting address of the array.
+   416 00000240 [4003000000000000] 
+   417                                  
+   418                                  ;=========== Restore GPR values and return to the caller ==================================================================================================================
+   419                                  
+   420 00000248 9D                      popf                                                        ;Restore rflags
+   421 00000249 415F                    pop        r15                                              ;Restore r15
+   422 0000024B 415E                    pop        r14                                              ;Restore r14
+   423 0000024D 415D                    pop        r13                                              ;Restore r13
+   424 0000024F 415C                    pop        r12                                              ;Restore r12
+   425 00000251 415B                    pop        r11                                              ;Restore r11
+   426 00000253 415A                    pop        r10                                              ;Restore r10
+   427 00000255 4159                    pop        r9                                               ;Restore r9
+   428 00000257 4158                    pop        r8                                               ;Restore r8
+   429 00000259 5F                      pop        rdi                                              ;Restore rdi
+   430 0000025A 5E                      pop        rsi                                              ;Restore rsi
+   431 0000025B 5A                      pop        rdx                                              ;Restore rdx
+   432 0000025C 59                      pop        rcx                                              ;Restore rcx
+   433 0000025D 5B                      pop        rbx                                              ;Restore rbx
+   434 0000025E 5D                      pop        rbp                                              ;Restore rbp
+   435                                  
+   436 0000025F C3                      ret                                                         ;Pop the integer stack and resume execution at the address that was popped from the stack.
+   437                                  ;===== End of program numericmain =========================================================================================================================================
+   438                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3=========4=========5=========6=========7**

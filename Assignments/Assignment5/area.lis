@@ -1,0 +1,285 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Area of a Triangle			                                        *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Created:		 November 4, 2020													*
+     5                                  ; Program Completed:	 November 6, 2020													*
+     6                                  ; Last Modified:		 November 10, 2020													*
+     7                                  ; Program Description:   This program asks a user to input three floating-point lengths     *
+     8                                  ;                        of a triangle and returns the area using Herons Formula			*
+     9                                  ;                        Herons Formula = Sqrt(s(s-a)(s-b)(s-c)), Where s = (a + b + c)/2   *
+    10                                  ;                                                                                           *
+    11                                  ;********************************************************************************************
+    12                                  ; Author Information:                                                                       *
+    13                                  ; Name:         Bilal El-haghassan                                                          *
+    14                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *
+    15                                  ; Institution:  California State University - Fullerton                                     *
+    16                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    17                                  ;                                                                                           *
+    18                                  ;********************************************************************************************
+    19                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    20                                  ; This program is free software: you can redistribute it and/or modify it under the terms   *
+    21                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. *
+    22                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    23                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. *
+    24                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    25                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    26                                  ;                                                                                           *
+    27                                  ;********************************************************************************************
+    28                                  ; Program Information                                                                       *
+    29                                  ; Program name:   Area of a Triangle 				                           				*
+    30                                  ; Languages used: One module in C, One module in C++, One module in x86                   	*
+    31                                  ; Files included: area.asm, ispositivefloat.cpp, triangle.c                                 *
+    32                                  ;                                                                                           *
+    33                                  ;********************************************************************************************
+    34                                  ; This File                                                                                 *
+    35                                  ;    Name:      area.asm                                                         			*
+    36                                  ;    Purpose:   Takes a users input of 3 floating point numbers corresponding to 3sides     * 
+    37                                  ;               of a trangle and returns the area as a floating point number to driver      *
+    38                                  ;	 Language:	x86																			*
+    39                                  ;	 Assemble:	nasm -f elf64 -l area.lis -o area.o area.asm            					*
+    40                                  ;	 Link:		gcc -m64 -no-pie -o a.out -std=c11 area.o triangle.o ispositivefloat.o      *
+    41                                  ;																							*
+    42                                  ;********************************************************************************************
+    43                                  
+    44                                  ;Declare the names of functions called in this file whose source code is not in this file.
+    45                                  extern printf
+    46                                  extern scanf
+    47                                  extern ispositivefloat
+    48                                  extern atof
+    49                                  
+    50                                  global area                       ; Make function callable by other linked files.
+    51                                  
+    52                                  section .data
+    53                                  
+    54 00000000 546869732070726F67-         intro db "This program will compute the area of your triangle.", 10, 10
+    54 00000009 72616D2077696C6C20-
+    54 00000012 636F6D707574652074-
+    54 0000001B 68652061726561206F-
+    54 00000024 6620796F7572207472-
+    54 0000002D 69616E676C652E0A0A 
+    55 00000036 456E74657220746865-               db "Enter the floating point lengths of the 3 sides of your triangle: ", 10, 10, 0
+    55 0000003F 20666C6F6174696E67-
+    55 00000048 20706F696E74206C65-
+    55 00000051 6E67746873206F6620-
+    55 0000005A 746865203320736964-
+    55 00000063 6573206F6620796F75-
+    55 0000006C 7220747269616E676C-
+    55 00000075 653A200A0A00       
+    56                                  
+    57 0000007B 536964652025643A20-         input db "Side %d: ", 0
+    57 00000084 00                 
+    58 00000085 257300                      stringFormat db "%s", 0 
+    59 00000088 0A416E20696E76616C-         invalid db 10, "An invalid input was detected.  Please run the program again.", 10, 0
+    59 00000091 696420696E70757420-
+    59 0000009A 776173206465746563-
+    59 000000A3 7465642E2020506C65-
+    59 000000AC 6173652072756E2074-
+    59 000000B5 68652070726F677261-
+    59 000000BE 6D20616761696E2E0A-
+    59 000000C7 00                 
+    60 000000C8 0A5468657365207661-         validinputs db 10, "These values were received:  %.7lf   %.7lf   %.7lf", 10, 0
+    60 000000D1 6C7565732077657265-
+    60 000000DA 207265636569766564-
+    60 000000E3 3A2020252E376C6620-
+    60 000000EC 2020252E376C662020-
+    60 000000F5 20252E376C660A00   
+    61 000000FD 0A5468652061726561-         trianglearea db 10, "The area of this triangle is %.7lf square meters", 10, 0
+    61 00000106 206F66207468697320-
+    61 0000010F 747269616E676C6520-
+    61 00000118 697320252E376C6620-
+    61 00000121 737175617265206D65-
+    61 0000012A 746572730A00       
+    62                                   
+    63                                  
+    64                                  section .bss
+    65 00000000 <res 00000018>              array: resq 3                 
+    66                                  
+    67                                  section .text
+    68                                  
+    69                                  area:
+    70                                  ; Back up all registers and set stack pointer to base pointer
+    71 00000000 55                          push rbp
+    72 00000001 4889E5                      mov rbp, rsp
+    73 00000004 57                          push rdi
+    74 00000005 56                          push rsi
+    75 00000006 52                          push rdx
+    76 00000007 51                          push rcx
+    77 00000008 4150                        push r8
+    78 0000000A 4151                        push r9
+    79 0000000C 4152                        push r10
+    80 0000000E 4153                        push r11
+    81 00000010 4154                        push r12
+    82 00000012 4155                        push r13
+    83 00000014 4156                        push r14
+    84 00000016 4157                        push r15
+    85 00000018 53                          push rbx
+    86 00000019 9C                          pushf
+    87                                  
+    88 0000001A 6A00                        push qword 0               ; Extra push to create even number of pushes
+    89                                  
+    90                                  ;=================================FUNCTION BEGINS===========================================
+    91 0000001C 41BC00000000                mov r12, 0                 ; Counter
+    92 00000022 41BD03000000                mov r13, 3                 ; Max inputs 
+    93 00000028 41BE00000000                mov r14, 0                 ; flag for square root of negative   
+    94                                  
+    95                                  
+    96                                  ;-------------------------------PRINTS INTRODUCTION-----------------------------------------
+    97 0000002E 48BF-                       mov rdi, stringFormat
+    97 00000030 [8500000000000000] 
+    98 00000038 48BE-                       mov rsi, intro
+    98 0000003A [0000000000000000] 
+    99 00000042 B800000000                  mov rax, 0
+   100 00000047 E8(00000000)                call printf
+   101                                  
+   102                                  ;===============================INPUT LOOP BEGINS===========================================
+   103                                      beginloop:
+   104                                  
+   105 0000004C 4D39EC                      cmp r12, r13               ; Compares Counter (r12) to input limit 3 in (r13).
+   106 0000004F 0F8D8F000000                jge valid_inputs           
+   107                                  
+   108                                  ;--------------------------------PRINTS OUT SIDE #------------------------------------------
+   109                                  
+   110 00000055 49FFC4                      inc r12                    ; Increments counter r12.
+   111 00000058 48BF-                       mov rdi, input             ; Passes input format to print out "Side: %lf".
+   111 0000005A [7B00000000000000] 
+   112 00000062 4C89E6                      mov rsi, r12               ; Passes Counter (r12) to be printed in input string.
+   113 00000065 B800000000                  mov rax, 0                 
+   114 0000006A E8(00000000)                call printf
+   115                                  
+   116                                  ;--------------------------------ASKS USER FOR INPUT----------------------------------------
+   117 0000006F 6A00                        push qword 0
+   118 00000071 48BF-                       mov rdi, stringFormat      ; Pass stringformat to take a users input as a string.
+   118 00000073 [8500000000000000] 
+   119 0000007B 4889E6                      mov rsi, rsp               ; Points rsi to top of stack to place input value of scanf.
+   120 0000007E B800000000                  mov rax, 0                 ; Set rax to 1 to let scanf know its an incoming float.
+   121 00000083 E8(00000000)                call scanf
+   122                                  
+   123                                  ;----------------------------------FLOAT VALIDATION-----------------------------------------
+   124                                  
+   125 00000088 4889E7                      mov rdi, rsp               ; Copy address of stack pointer to rdi to pass input value.
+   126 0000008B B800000000                  mov rax, 0                 ; Set rax 0 to allow function to return to it.
+   127 00000090 E8(00000000)                call ispositivefloat       ; Call ispositivefloat cpp function to validate input.
+   128                                  
+   129 00000095 4883F800                    cmp rax, 0                 ; Checks to see if ispositivefloat function returned false.
+   130 00000099 7421                        je invalid_input
+   131                                  
+   132                                  ;-----------------------------------ASCII to Float------------------------------------------
+   133                                  
+   134 0000009B B801000000                  mov rax, 1                 ; Set rax to 1 to allow function to return float to xmm0 reg.
+   135 000000A0 E8(00000000)                call atof                  ; Call atof c++ library function.
+   136                                      
+   137                                  ;----------------------------MOVE VALID INPUT INTO ARRAY------------------------------------
+   138                                  
+   139 000000A5 66420FD604E5-               movq [array + 8 * (r12 - 1)], xmm0    ; Copy atof output into array.  
+   139 000000AB [F8FFFFFF]         
+   140 000000AF F2460F583CE5-               addsd xmm15, [array + 8 * (r12 - 1)]  ; Add atof output to xmm15 registers.
+   140 000000B5 [F8FFFFFF]         
+   141                                  
+   142 000000B9 58                          pop rax                               ; Pop to offset push before scanf function.
+   143                                  
+   144 000000BA EB90                        jmp beginloop                         ; Restart loop.
+   145                                  
+   146                                  ;====================================END OF LOOP============================================
+   147                                  
+   148                                  ;---------------------------***INVALID INPUT DETECTED***------------------------------------
+   149                                      invalid_input:
+   150 000000BC B800000000                  mov rax, 0
+   151 000000C1 48BF-                       mov rdi, stringFormat      ; Pass string format as first parameter.
+   151 000000C3 [8500000000000000] 
+   152 000000CB 48BE-                       mov rsi, invalid           ; Pass invalid message as second parameter.
+   152 000000CD [8800000000000000] 
+   153 000000D5 E8(00000000)                call printf                ; Calls printf function from c library.
+   154                                  
+   155 000000DA 664D0F6EFE                  movq xmm15, r14            ; Sets the final value returned to driver to 0 (r14).
+   156                                  
+   157 000000DF E9AF000000                  jmp endfunction            ; Jump to end of file.
+   158                                  
+   159                                  ;--------------------------***VALID INPUT CALCULATION**-------------------------------------
+   160                                      valid_inputs:
+   161 000000E4 6A00                        push qword 0
+   162                                  
+   163                                  ;--------------------------Print out values recieved----------------------------------------
+   164                                  
+   165 000000E6 F20F100425-                 movsd xmm0, [array]             ; Side A: First input passed as first parameter.
+   165 000000EB [00000000]         
+   166 000000EF F20F100C25-                 movsd xmm1, [array + 8]         ; Side B: Second input passed as second parameter.
+   166 000000F4 [08000000]         
+   167 000000F8 F20F101425-                 movsd xmm2, [array + 16]        ; Side C: Third input passed as third parameter.
+   167 000000FD [10000000]         
+   168 00000101 48BF-                       mov rdi, validinputs            ; Pass validinputs prompt to output 3 floats.
+   168 00000103 [C800000000000000] 
+   169 0000010B B803000000                  mov rax, 3                      ; Pass 3 to rax to allow printf to output 3 floats.
+   170 00000110 E8(00000000)                call printf
+   171                                  
+   172                                  ;================================HERONS FORMULA=============================================
+   173                                  ;                              s = (a + b + c)/2  
+   174                                  ;                            Sqrt(s(s-a)(s-b)(s-c))       
+   175                                  ;===========================================================================================
+   176 00000115 48B800000000000000-         mov rax, 0x4000000000000000     ; Copy hex value of 2.0 into rax.
+   176 0000011E 40                 
+   177 0000011F 664C0F6EC0                  movq xmm8, rax                  ; Copy 2.0 from rax to xmm8 reg.
+   178                                  
+   179                                  ;-----------------------------CALCULATE S PERIMETER-----------------------------------------
+   180 00000124 F2450F5EF8                  divsd xmm15, xmm8               ; Divide xmm15(a + b + c) by xmm8(2.0).
+   181                                  
+   182                                  ;--------------------------CALCULATE (s-a)*(s-b)*(s-c)--------------------------------------
+   183                                  
+   184 00000129 F2450F10EF                  movsd xmm13, xmm15              ; Copy s perimeter to xmm13.
+   185 0000012E F2440F5C2C25-               subsd xmm13, [array]            ; Subtract first input from s:  (s - a) 
+   185 00000134 [00000000]         
+   186                                  
+   187 00000138 F2450F10D7                  movsd xmm10, xmm15              ; Copy s perimeter to xmm10.
+   188 0000013D F2440F5C1425-               subsd xmm10, [array + 8]        ; Subtract second input from s:  (s - b)
+   188 00000143 [08000000]         
+   189                                  
+   190 00000147 F2450F10DF                  movsd xmm11, xmm15              ; Copy s perimeter
+   191 0000014C F2440F5C1C25-               subsd xmm11, [array + 16]       ; Subtract third input from s:  (s - c)
+   191 00000152 [10000000]         
+   192                                  
+   193 00000156 F2450F59FD                  mulsd xmm15, xmm13              ; Multiply s by (s-a)
+   194 0000015B F2450F59FA                  mulsd xmm15, xmm10              ; Multiply s by (s-b)
+   195 00000160 F2450F59FB                  mulsd xmm15, xmm11              ; Multiply s by (s-c)
+   196                                  
+   197                                  
+   198 00000165 66490F6ECE                  movq xmm1, r14                  ; Copy 0 from r14 to xmm1 register.
+   199 0000016A 66440F2EF9                  ucomisd xmm15, xmm1             ; Compare value in xmm15 after calculations with 0.
+   200 0000016F 0F8247FFFFFF                jb invalid_input                ; Jump to invalid input label if xmm15 is negative
+   201                                      
+   202 00000175 F2450F51FF                  Sqrtsd xmm15, xmm15             ; Square Root of xmm15: s(s-a)(s-b)(s-c)
+   203                                  
+   204                                  ;===============================END HERONS FORMULA==========================================
+   205                                  
+   206                                  ;---------------------------PRINT OUT AREA OF TRIANGLE--------------------------------------
+   207 0000017A F2410F10C7                  movsd xmm0, xmm15               ; Copy calculated area of triangle to xmm0 reg.
+   208 0000017F 48BF-                       mov rdi, trianglearea           ; Pass trianglearea prompt as parameter for printf.
+   208 00000181 [FD00000000000000] 
+   209 00000189 B801000000                  mov rax, 1                      ; Set rax to 1 to let printf know its printing xmm0. 
+   210 0000018E E8(00000000)                call printf
+   211                                  
+   212                                  ;===============================END OF AREA FUNCTION========================================
+   213                                  endfunction:
+   214                                  
+   215 00000193 F2410F10C7                  movsd xmm0, xmm15               ; Copy area from xmm15 to xmm0 to be returned.
+   216                                     
+   217 00000198 58                          pop rax                         ; Extra pop to align stack to 16 bytes.
+   218 00000199 58                          pop rax                         ; Remove extra push of -1 from stack.
+   219                                  
+   220                                      ; Restores all registers to their original state.
+   221 0000019A 9D                          popf                                                 
+   222 0000019B 5B                          pop rbx                                                     
+   223 0000019C 415F                        pop r15                                                     
+   224 0000019E 415E                        pop r14                                                      
+   225 000001A0 415D                        pop r13                                                      
+   226 000001A2 415C                        pop r12                                                      
+   227 000001A4 415B                        pop r11                                                     
+   228 000001A6 415A                        pop r10                                                     
+   229 000001A8 4159                        pop r9                                                      
+   230 000001AA 4158                        pop r8                                                      
+   231 000001AC 59                          pop rcx                                                     
+   232 000001AD 5A                          pop rdx                                                     
+   233 000001AE 5E                          pop rsi                                                     
+   234 000001AF 5F                          pop rdi                                                     
+   235 000001B0 5D                          pop rbp
+   236                                  
+   237 000001B1 C3                          ret
+   238                                  

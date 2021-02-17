@@ -1,0 +1,102 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Sorting Array                                                      *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Created:		 October 12, 2020													*
+     5                                  ; Program Completed:	 October 23, 2020													*
+     6                                  ; Last Modified:		 October 31, 2020													*
+     7                                  ; Program Description:   This program asks a user to input integers into an array and       *
+     8                                  ;                        returns the same array but sorted in ascending order.              *
+     9                                  ;                                                                                           *
+    10                                  ;********************************************************************************************
+    11                                  ; Author Information:                                                                       *
+    12                                  ; Name:         Bilal El-haghassan                                                          *
+    13                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *    
+    14                                  ; Institution:  California State University - Fullerton                                     *
+    15                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    16                                  ;                                                                                           *
+    17                                  ;********************************************************************************************
+    18                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    19                                  ; This program is free software: you can redistribute it and/or modify it under the terms   * 
+    20                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. * 
+    21                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    22                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. * 
+    23                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    24                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    25                                  ;                                                                                           *
+    26                                  ;********************************************************************************************
+    27                                  ; Program Information                                                                       *
+    28                                  ; Program name:   Sorting Array			                                       				*
+    29                                  ; Languages used: One module in C, Five modules in x86, Three modules in C++ 				*
+    30                                  ; Files included: manager.asm, input_array.asm, swap.asm, atol.asm, read_clock.asm 			*   
+    31                                  ;   			  main.cpp, isinteger.cpp, display_array.cpp, bubble_sort.c      			*
+    32                                  ;                                                                                           *
+    33                                  ;********************************************************************************************
+    34                                  ; This File                                                                                 *
+    35                                  ;    Name:      swap.asm                                                            		*
+    36                                  ;    Purpose:   Takes two addresses/pointers and swaps the values inside them.              *
+    37                                  ;	 Language:	x86-64																		*
+    38                                  ;	 Assemble:  nasm -f elf64 -l swap.lis -o swap.o swap.asm                      			*
+    39                                  ;	 Link:		gcc -m64 -no-pie -o array.out -std=c11 main.o manager.o input_array.o 		*
+    40                                  ;				swap.o isinteger.o atolong.o display_array.o bubble_sort.o read_clock.o		*
+    41                                  ;																							*
+    42                                  ;********************************************************************************************
+    43                                  
+    44                                  global swap                             ; Makes function callable from other linked files.
+    45                                  
+    46                                  section .data     
+    47                                  section .bss
+    48                                  
+    49                                  section .text
+    50                                  
+    51                                  swap:
+    52                                  
+    53                                  ; Back up all registers to stack and set stack pointer to base pointer
+    54 00000000 55                      push rbp
+    55 00000001 4889E5                  mov rbp, rsp
+    56 00000004 57                      push rdi
+    57 00000005 56                      push rsi
+    58 00000006 52                      push rdx
+    59 00000007 51                      push rcx
+    60 00000008 4150                    push r8
+    61 0000000A 4151                    push r9
+    62 0000000C 4152                    push r10
+    63 0000000E 4153                    push r11
+    64 00000010 4154                    push r12
+    65 00000012 4155                    push r13
+    66 00000014 4156                    push r14
+    67 00000016 4157                    push r15
+    68 00000018 53                      push rbx
+    69 00000019 9C                      pushf
+    70                                  
+    71 0000001A 6AFF                    push qword -1                      ; Extra push onto stack to make even # of pushes.
+    72                                  
+    73                                  ;--------------------------------SWAP ALGORITHM---------------------------------------------
+    74                                  
+    75 0000001C 4C8B27                  mov r12, [rdi]                     ; Copies the value in rdi and places it in r12.
+    76 0000001F 4C8B2E                  mov r13, [rsi]                     ; Copies the value in rsi and places it in r13.
+    77                                  
+    78 00000022 4C8926                  mov [rsi], r12                     ; Copies value originally in rdi into address of rsi.
+    79 00000025 4C892F                  mov [rdi], r13                     ; Copies value originally in rsi into address of rdi.
+    80                                  
+    81                                  ;---------------------------------END OF SWAP-----------------------------------------------
+    82                                  
+    83 00000028 58                      pop rax                            ; Remove extra push of -1 from stack.
+    84                                  
+    85                                  ; Restores all backed up registers to their original state.
+    86 00000029 9D                      popf                                                       
+    87 0000002A 5B                      pop rbx                                                     
+    88 0000002B 415F                    pop r15                                                     
+    89 0000002D 415E                    pop r14                                                      
+    90 0000002F 415D                    pop r13                                                      
+    91 00000031 415C                    pop r12                                                      
+    92 00000033 415B                    pop r11                                                     
+    93 00000035 415A                    pop r10                                                     
+    94 00000037 4159                    pop r9                                                      
+    95 00000039 4158                    pop r8                                                      
+    96 0000003B 59                      pop rcx                                                     
+    97 0000003C 5A                      pop rdx                                                     
+    98 0000003D 5E                      pop rsi                                                     
+    99 0000003E 5F                      pop rdi                                                     
+   100 0000003F 5D                      pop rbp
+   101                                  
+   102 00000040 C3                      ret

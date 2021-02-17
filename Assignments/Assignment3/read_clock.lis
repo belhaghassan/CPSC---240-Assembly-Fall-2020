@@ -1,0 +1,104 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Sorting Array                                                      *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Created:		 October 12, 2020													*
+     5                                  ; Program Completed:	 October 23, 2020													*
+     6                                  ; Last Modified:		 October 31, 2020													*
+     7                                  ; Program Description:   This program asks a user to input integers into an array and       *
+     8                                  ;                        returns the same array but sorted in ascending order.              *
+     9                                  ;                                                                                           *
+    10                                  ;********************************************************************************************
+    11                                  ; Author Information:                                                                       *
+    12                                  ; Name:         Bilal El-haghassan                                                          *
+    13                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *    
+    14                                  ; Institution:  California State University - Fullerton                                     *
+    15                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    16                                  ;                                                                                           *
+    17                                  ;********************************************************************************************
+    18                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    19                                  ; This program is free software: you can redistribute it and/or modify it under the terms   * 
+    20                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. * 
+    21                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    22                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. * 
+    23                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    24                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    25                                  ;                                                                                           *
+    26                                  ;********************************************************************************************
+    27                                  ; Program Information                                                                       *
+    28                                  ; Program name:   Sorting Array			                                       				*
+    29                                  ; Languages used: One module in C, Five modules in x86, Three modules in C++ 				*
+    30                                  ; Files included: manager.asm, input_array.asm, swap.asm, atol.asm, read_clock.asm 			*   
+    31                                  ;   			  main.cpp, isinteger.cpp, display_array.cpp, bubble_sort.c      			*
+    32                                  ;                                                                                           *
+    33                                  ;********************************************************************************************
+    34                                  ; This File                                                                                 *
+    35                                  ;    Name:      read_clock.asm                                                         		*
+    36                                  ;    Purpose:   Returns the number of cycles/tics that have occured on the cpu since reset. * 
+    37                                  ;	 Language:	x86-64																		*
+    38                                  ;	 Assemble:	nasm -f elf64 -l read_clock.lis -o read_clock.o read_clock.asm		    	*
+    39                                  ;	 Link:		gcc -m64 -no-pie -o array.out -std=c11 main.o manager.o input_array.o 		*
+    40                                  ;				swap.o isinteger.o atolong.o display_array.o bubble_sort.o read_clock.o		*
+    41                                  ;																							*
+    42                                  ;********************************************************************************************
+    43                                  
+    44                                  global gettime                     ; Makes function callable from other linked files.
+    45                                  
+    46                                  section .data
+    47                                  section .bss
+    48                                  section .text
+    49                                  
+    50                                  gettime:
+    51                                  
+    52                                  ; Back up all registers and set stack pointer to base pointer
+    53 00000000 55                      push rbp
+    54 00000001 4889E5                  mov rbp, rsp
+    55 00000004 57                      push rdi
+    56 00000005 56                      push rsi
+    57 00000006 52                      push rdx
+    58 00000007 51                      push rcx
+    59 00000008 4150                    push r8
+    60 0000000A 4151                    push r9
+    61 0000000C 4152                    push r10
+    62 0000000E 4153                    push r11
+    63 00000010 4154                    push r12
+    64 00000012 4155                    push r13
+    65 00000014 4156                    push r14
+    66 00000016 4157                    push r15
+    67 00000018 53                      push rbx
+    68 00000019 9C                      pushf
+    69                                  
+    70 0000001A 6AFF                    push qword -1                           ; Extra push to create even number of pushes
+    71                                  
+    72                                  ;----------------------------------READ CLOCK-----------------------------------------------
+    73                                  
+    74 0000001C B800000000              mov rax, 0  
+    75 00000021 BA00000000              mov rdx, 0
+    76                                  
+    77 00000026 0FA2                    cpuid                              ; Identifies the type of cpu being used on pc.
+    78 00000028 0F31                    rdtsc                              ; Counts the number of cycles/tics occured since pc reset.
+    79                                  
+    80 0000002A 48C1E220                shl rdx, 32
+    81 0000002E 4801D0                  add rax, rdx
+    82                                  
+    83                                  ;---------------------------------END OF FILE-----------------------------------------------
+    84                                  
+    85 00000031 4158                    pop r8                             ; Remove extra push of -1 from stack.
+    86                                  
+    87                                  ; Restores all registers to their original state.
+    88 00000033 9D                      popf                                                 
+    89 00000034 5B                      pop rbx                                                     
+    90 00000035 415F                    pop r15                                                     
+    91 00000037 415E                    pop r14                                                      
+    92 00000039 415D                    pop r13                                                      
+    93 0000003B 415C                    pop r12                                                      
+    94 0000003D 415B                    pop r11                                                     
+    95 0000003F 415A                    pop r10                                                     
+    96 00000041 4159                    pop r9                                                      
+    97 00000043 4158                    pop r8                                                      
+    98 00000045 59                      pop rcx                                                     
+    99 00000046 5A                      pop rdx                                                     
+   100 00000047 5E                      pop rsi                                                     
+   101 00000048 5F                      pop rdi                                                     
+   102 00000049 5D                      pop rbp
+   103                                  
+   104 0000004A C3                      ret

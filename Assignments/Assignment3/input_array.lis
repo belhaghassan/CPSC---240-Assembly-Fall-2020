@@ -1,0 +1,186 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Sorting Array                                                      *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Created:		 October 12, 2020													*
+     5                                  ; Program Completed:	 October 23, 2020													*
+     6                                  ; Last Modified:		 October 31, 2020													*
+     7                                  ; Program Description:   This program asks a user to input integers into an array and       *
+     8                                  ;                        returns the same array but sorted in ascending order.              *
+     9                                  ;                                                                                           *
+    10                                  ;********************************************************************************************
+    11                                  ; Author Information:                                                                       *
+    12                                  ; Name:         Bilal El-haghassan                                                          *
+    13                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *    
+    14                                  ; Institution:  California State University - Fullerton                                     *
+    15                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    16                                  ;                                                                                           *
+    17                                  ;********************************************************************************************
+    18                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    19                                  ; This program is free software: you can redistribute it and/or modify it under the terms   * 
+    20                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. * 
+    21                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    22                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. * 
+    23                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    24                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    25                                  ;                                                                                           *
+    26                                  ;********************************************************************************************
+    27                                  ; Program Information                                                                       *
+    28                                  ; Program name:   Sorting Array			                                       				*
+    29                                  ; Languages used: One module in C, Five modules in x86, Three modules in C++ 				*
+    30                                  ; Files included: manager.asm, input_array.asm, swap.asm, atol.asm, read_clock.asm 			*   
+    31                                  ;   			  main.cpp, isinteger.cpp, display_array.cpp, bubble_sort.c      			*
+    32                                  ;                                                                                           *
+    33                                  ;********************************************************************************************
+    34                                  ; This File                                                                                 *
+    35                                  ;    Name:      input_array.asm                                                            	*
+    36                                  ;    Purpose:   To accept a users input of integers and save it into an array, then send    *
+    37                                  ;               the total number of elements inputed back to manager.                       *                                           *
+    38                                  ;	 Language:	x86-64																		*
+    39                                  ;	 Assemble:	nasm -f elf64 -l input_array.lis -o input_array.o input_array.asm			*
+    40                                  ;	 Link:		gcc -m64 -no-pie -o array.out -std=c11 main.o manager.o input_array.o 		*
+    41                                  ;				swap.o isinteger.o atolong.o display_array.o bubble_sort.o read_clock.o		*
+    42                                  ;																							*
+    43                                  ;********************************************************************************************
+    44                                  
+    45                                  ;Declare the names of functions called in this file whose source code is not in this file.
+    46                                  extern printf
+    47                                  extern scanf
+    48                                  extern atolong
+    49                                  extern isinteger
+    50                                  
+    51                                  global input_array                  ; Makes function callable from other linked files.
+    52                                  
+    53                                  section .data
+    54 00000000 546865206C61737420-         invalid db "The last input was invalid and not entered into the array.", 10, 0
+    54 00000009 696E70757420776173-
+    54 00000012 20696E76616C696420-
+    54 0000001B 616E64206E6F742065-
+    54 00000024 6E746572656420696E-
+    54 0000002D 746F20746865206172-
+    54 00000036 7261792E0A00       
+    55 0000003C 257300                      stringFormat db "%s", 0
+    56                                  
+    57                                  section .bss
+    58                                  
+    59                                  section .text
+    60                                  
+    61                                  input_array:
+    62                                  
+    63                                  ; Back up all registers and set stack pointer to base pointer
+    64 00000000 55                      push rbp
+    65 00000001 4889E5                  mov rbp, rsp
+    66 00000004 57                      push rdi
+    67 00000005 56                      push rsi
+    68 00000006 52                      push rdx
+    69 00000007 51                      push rcx
+    70 00000008 4150                    push r8
+    71 0000000A 4151                    push r9
+    72 0000000C 4152                    push r10
+    73 0000000E 4153                    push r11
+    74 00000010 4154                    push r12
+    75 00000012 4155                    push r13
+    76 00000014 4156                    push r14
+    77 00000016 4157                    push r15
+    78 00000018 53                      push rbx
+    79                                  
+    80 00000019 6AFF                    push qword -1                           ; Extra push to create even number of pushes
+    81                                  
+    82                                  ;-----------------------------INITIALIZE PARAMETERS-----------------------------------------
+    83 0000001B 4989FF                  mov qword r15, rdi                      ; Address of array saved to r15.
+    84 0000001E 4989F6                  mov qword r14, rsi                      ; Max number of elements allowed in array.
+    85 00000021 41BD00000000            mov qword r13, 0                        ; Set counter to 0 elements in Array.
+    86                                  
+    87                                  
+    88                                  ;---------------------------------START OF LOOP---------------------------------------------
+    89                                  begin_loop:
+    90                                  
+    91                                  ; Scanf function called to take user input.
+    92 00000027 48BF-                   mov qword rdi, stringFormat
+    92 00000029 [3C00000000000000] 
+    93 00000031 6A00                    push qword 0
+    94 00000033 4889E6                  mov qword rsi, rsp                      ; Stack pointer points to where scanf outputs.
+    95 00000036 B800000000              mov qword rax, 0
+    96 0000003B E8(00000000)            call scanf
+    97                                  
+    98                                  ; Tests if Control + D is entered to finish inputing into array.
+    99 00000040 4898                    cdqe
+   100 00000042 4883F8FF                cmp rax, -1                          
+   101 00000046 7455                    je end_of_loop                          ; If control + D is entered, jump to end_of_loop.
+   102                                  
+   103                                  ;------------------------------INPUT VALIDATION---------------------------------------------
+   104                                  ; Checks to see if each character in the input string of integers is from 0 to 9.
+   105                                  
+   106 00000048 B800000000              mov qword rax, 0
+   107 0000004D 4889E7                  mov qword rdi, rsp
+   108 00000050 E8(00000000)            call isinteger
+   109 00000055 4883F800                cmp rax, 0                              ; Checks to see if isinteger returned true/false.
+   110 00000059 7420                    je invalid_input                        ; If isinteger returns 0. jump to not_an_int label.
+   111                                  
+   112                                  ;---------------------------------ASCII TO LONG---------------------------------------------
+   113                                  ; Converts string of characters (user input) into a long integer. 
+   114                                  
+   115 0000005B B800000000              mov qword rax, 0
+   116 00000060 4889E7                  mov qword rdi, rsp
+   117 00000063 E8(00000000)            call atolong                            
+   118 00000068 4989C4                  mov qword r12, rax                      ; Saves output long integer from atolong in r12.
+   119 0000006B 4158                    pop r8                                  ; Pop off stack into any scratch register. 
+   120                                  
+   121                                  ;--------------------------------COPY INTO ARRAY--------------------------------------------
+   122                                  ; Adds copy of long integer saved in r12 into array at index of counter (r13).
+   123                                  
+   124 0000006D 4F8924EF                mov [r15 + 8 * r13], r12                ; Copies user input into array at index of r13.
+   125 00000071 49FFC5                  inc r13                                 ; Increments counter r13 by 1.
+   126                                  
+   127                                  ;-----------------------------ARRAY CAPACITY TEST-------------------------------------------
+   128                                  ; Tests to see if max array capacity has been reached.
+   129 00000074 4D39F5                  cmp r13, r14                            ; Compares # of elements (r13) to capacity (r14).
+   130 00000077 7426                    je exit                                 ; If # of elements equals capacity, exit loop.
+   131                                  
+   132                                  ; Restarts loop.
+   133 00000079 EBAC                    jmp begin_loop
+   134                                  
+   135                                  ;--------------------------------INVALID INPUT----------------------------------------------
+   136                                  ; Prints out invalid input statement and restarts loop and pops stack to offset initial push
+   137                                  ; at the beginning of the loop.
+   138                                  
+   139                                  invalid_input:
+   140 0000007B 48BF-                   mov rdi, stringFormat
+   140 0000007D [3C00000000000000] 
+   141 00000085 48BE-                   mov rsi, invalid 
+   141 00000087 [0000000000000000] 
+   142 0000008F B800000000              mov rax, 0
+   143 00000094 E8(00000000)            call printf
+   144 00000099 4158                    pop r8                                 ; Pop off stack to any scratch register.  
+   145 0000009B EB8A                    jmp begin_loop                         ; Restarts loop.
+   146                                  
+   147                                  ;---------------------------------END OF LOOP-----------------------------------------------
+   148                                  
+   149                                  ; After control+D is entered the loop is skipped and so is the pop in the loop
+   150                                  ; therefore this controlD block makes up for that missed pop.
+   151                                  end_of_loop:
+   152 0000009D 4158                    pop r8                                  ; Pop off stack into any scratch register.                
+   153                                  
+   154                                  ;------------------------------------EXIT---------------------------------------------------
+   155                                  exit:
+   156                                  
+   157 0000009F 4C89E8                  mov qword rax, r13                      ; Copies # of elements in r13 to rax.
+   158                                  
+   159 000000A2 4158                    pop r8                                  ; Remove extra push of -1 from stack.
+   160                                  
+   161                                  ; Restore all backed up registers to their original state.
+   162 000000A4 5B                      pop rbx                                                     
+   163 000000A5 415F                    pop r15                                                     
+   164 000000A7 415E                    pop r14                                                      
+   165 000000A9 415D                    pop r13                                                      
+   166 000000AB 415C                    pop r12                                                      
+   167 000000AD 415B                    pop r11                                                     
+   168 000000AF 415A                    pop r10                                                     
+   169 000000B1 4159                    pop r9                                                      
+   170 000000B3 4158                    pop r8                                                      
+   171 000000B5 59                      pop rcx                                                     
+   172 000000B6 5A                      pop rdx                                                     
+   173 000000B7 5E                      pop rsi                                                     
+   174 000000B8 5F                      pop rdi                                                     
+   175 000000B9 5D                      pop rbp
+   176                                  
+   177 000000BA C3                      ret

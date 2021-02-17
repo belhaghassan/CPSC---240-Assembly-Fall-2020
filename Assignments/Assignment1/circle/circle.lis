@@ -1,0 +1,139 @@
+     1                                  ;***************************************************
+     2                                  ;Program name: "Circumference of a Circle".
+     3                                  ;***************************************************
+     4                                  ;
+     5                                  ;Author information
+     6                                  
+     7                                  ;   Author name: Bilal El-haghassan
+     8                                  ;   Author email: bilalelhaghassan@csu.fullerton.edu
+     9                                  ;
+    10                                  ;***************************************************
+    11                                  
+    12                                  section .data
+    13                                  
+    14 00000000 546869732063697263-         author db "This circle function is brought to you by Bilal", 10, 0
+    14 00000009 6C652066756E637469-
+    14 00000012 6F6E2069732062726F-
+    14 0000001B 7567687420746F2079-
+    14 00000024 6F752062792042696C-
+    14 0000002D 616C0A00           
+    15 00000031 506C6561736520656E-         inputPrompt db "Please enter the radius of a circle in whole number of meters: ", 0
+    15 0000003A 746572207468652072-
+    15 00000043 6164697573206F6620-
+    15 0000004C 6120636972636C6520-
+    15 00000055 696E2077686F6C6520-
+    15 0000005E 6E756D626572206F66-
+    15 00000067 206D65746572733A20-
+    15 00000070 00                 
+    16 00000071 546865206E756D6265-         receivedNum db "The number %ld was received.", 10, 0
+    16 0000007A 7220256C6420776173-
+    16 00000083 207265636569766564-
+    16 0000008C 2E0A00             
+    17 0000008F 546865206369726375-         output1 db "The circumference of a circle with this radius is %ld ", 0
+    17 00000098 6D666572656E636520-
+    17 000000A1 6F6620612063697263-
+    17 000000AA 6C6520776974682074-
+    17 000000B3 686973207261646975-
+    17 000000BC 7320697320256C6420-
+    17 000000C5 00                 
+    18 000000C6 616E6420256C642F37-         output2 db "and %ld/7 meters.", 10, 0
+    18 000000CF 206D65746572732E0A-
+    18 000000D8 00                 
+    19 000000D9 54686520696E746567-         returnString db "The integer part of the area will be returned to the main program. Please enjoy your circles.", 10, 0
+    19 000000E2 65722070617274206F-
+    19 000000EB 662074686520617265-
+    19 000000F4 612077696C6C206265-
+    19 000000FD 2072657475726E6564-
+    19 00000106 20746F20746865206D-
+    19 0000010F 61696E2070726F6772-
+    19 00000118 616D2E20506C656173-
+    19 00000121 6520656E6A6F792079-
+    19 0000012A 6F757220636972636C-
+    19 00000133 65732E0A00         
+    20                                  
+    21 00000138 257300                      stringFormat db "%s", 0 ; %s means any string
+    22 0000013B 256C6400                    numberFormat db "%ld", 0 ; %ld means any digit
+    23                                  
+    24                                  section .bss
+    25                                      pi_num equ 22
+    26                                      pi_den equ 7
+    27                                  
+    28                                  section .text
+    29                                      extern printf
+    30                                      extern scanf
+    31                                      global start
+    32                                  
+    33                                  start:
+    34 00000000 4154                        push r12
+    35                                  
+    36 00000002 48BF-                       mov rdi, stringFormat
+    36 00000004 [3801000000000000] 
+    37 0000000C 48BE-                       mov rsi, author
+    37 0000000E [0000000000000000] 
+    38 00000016 B800000000                  mov rax, 0
+    39 0000001B E8(00000000)                call printf
+    40                                  
+    41                                      ;Request input for radius
+    42 00000020 48BF-                       mov rdi, stringFormat
+    42 00000022 [3801000000000000] 
+    43 0000002A 48BE-                       mov rsi, inputPrompt          ;print out prompt for radius
+    43 0000002C [3100000000000000] 
+    44 00000034 B800000000                  mov rax, 0
+    45 00000039 E8(00000000)                call printf
+    46                                  
+    47 0000003E 48BF-                       mov rdi, numberFormat
+    47 00000040 [3B01000000000000] 
+    48 00000048 4889E6                      mov rsi, rsp                  ; stack pointer points to rsi were scanf input will be placed
+    49 0000004B B800000000                  mov rax, 0
+    50 00000050 E8(00000000)                call scanf
+    51 00000055 415C                        pop r12                       ; copy user input into r12
+    52                                  
+    53                                      ;Return received numberFormat
+    54 00000057 48BF-                       mov rdi, receivedNum
+    54 00000059 [7100000000000000] 
+    55 00000061 4C89E6                      mov rsi, r12                  ; print out user input
+    56 00000064 B800000000                  mov rax, 0
+    57 00000069 E8(00000000)                call printf
+    58                                  
+    59                                      ;Calculate the Circumference
+    60                                      ;Multiply radius by 2 and the numerator of egyptian pi
+    61 0000006E 4C89E0                      mov rax, r12                  ; place user input into rax
+    62 00000071 B902000000                  mov rcx, 2                    ; copy value 2 to rcx to multiply radius(user input)
+    63 00000076 48F7E1                      mul rcx
+    64 00000079 B916000000                  mov rcx, pi_num               ; place egyptian pi numerator into rcx
+    65 0000007E 48F7E1                      mul rcx                       ; multiply numerator by (2 * radius)
+    66 00000081 4989C4                      mov r12, rax                  ; store quotient in r12
+    67                                  
+    68                                      ;Divide number stored in r12 after multiplication and divide it by
+    69                                      ;egyptian quotient of pi
+    70 00000084 BA00000000                  mov rdx, 0
+    71 00000089 4C89E0                      mov rax, r12                  ; copy quotient into rax to be divided
+    72 0000008C B907000000                  mov rcx, pi_den               ; copy egytian pi denominator into rcx
+    73 00000091 48F7F1                      div rcx                       ; divide quotient in rax by denominator in rcx
+    74 00000094 4989C4                      mov r12, rax                  ; copy new quotient into r12
+    75 00000097 4989D5                      mov r13, rdx                  ; copy remainder into r13
+    76                                  
+    77                                      ;Print quotient of circumference calculation
+    78 0000009A 48BF-                       mov rdi, output1
+    78 0000009C [8F00000000000000] 
+    79 000000A4 4C89E6                      mov rsi, r12
+    80 000000A7 B800000000                  mov rax, 0
+    81 000000AC E8(00000000)                call printf
+    82                                  
+    83                                      ;Print remainder of circumference calculation
+    84 000000B1 48BF-                       mov rdi, output2
+    84 000000B3 [C600000000000000] 
+    85 000000BB 4C89EE                      mov rsi, r13
+    86 000000BE B800000000                  mov rax, 0
+    87 000000C3 E8(00000000)                call printf
+    88                                  
+    89                                      ;Print return string
+    90 000000C8 48BF-                       mov rdi, stringFormat
+    90 000000CA [3801000000000000] 
+    91 000000D2 48BE-                       mov rsi, returnString
+    91 000000D4 [D900000000000000] 
+    92 000000DC B800000000                  mov rax, 0
+    93 000000E1 E8(00000000)                call printf
+    94                                  
+    95 000000E6 4C89E0                      mov rax, r12
+    96 000000E9 C3                          ret

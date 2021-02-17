@@ -1,0 +1,108 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Sum of Integers - Array                                            *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Description:   This program asks a user to input integers into an array and       *
+     5                                  ;                        returns the sum of integers in the array.                          *
+     6                                  ;                                                                                           *
+     7                                  ;********************************************************************************************
+     8                                  ; Author Information:                                                                       *
+     9                                  ; Name:         Bilal El-haghassan                                                          *
+    10                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *    
+    11                                  ; Institution:  California State University - Fullerton                                     *
+    12                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    13                                  ;                                                                                           *
+    14                                  ;********************************************************************************************
+    15                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    16                                  ; This program is free software: you can redistribute it and/or modify it under the terms   * 
+    17                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. * 
+    18                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    19                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. * 
+    20                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    21                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    22                                  ;                                                                                           *
+    23                                  ;********************************************************************************************
+    24                                  ; Program information                                                                       *
+    25                                  ;   Program name: Sum of Integers - Array                                                   *
+    26                                  ;   Programming languages: One module in C, Four modules in X86, Two modules in c++         *
+    27                                  ;   Files in this program: manager.asm, input_array.asm, sum.asm, atol.asm, main.c,         *   
+    28                                  ;   					   validate_decimal_digits.cpp, display_array.cpp                   *
+    29                                  ;                                                                                           *
+    30                                  ;********************************************************************************************
+    31                                  ; This File                                                                                 *
+    32                                  ;    Name:      sum.asm                                                                     *
+    33                                  ;    Purpose:   To add up all the integers in the array and return the sum back to manager. *
+    34                                  ;                                                                                           *
+    35                                  ;********************************************************************************************
+    36                                  
+    37                                  global lengthsquared                       ; Makes function callable from other linked files.
+    38                                  
+    39                                  section .data     
+    40                                  section .bss
+    41                                  
+    42                                  section .text
+    43                                  
+    44                                  lengthsquared:
+    45                                  
+    46                                  ; Back up all registers to stack and set stack pointer to base pointer
+    47 00000000 55                      push rbp
+    48 00000001 4889E5                  mov rbp, rsp
+    49 00000004 57                      push rdi
+    50 00000005 56                      push rsi
+    51 00000006 52                      push rdx
+    52 00000007 51                      push rcx
+    53 00000008 4150                    push r8
+    54 0000000A 4151                    push r9
+    55 0000000C 4152                    push r10
+    56 0000000E 4153                    push r11
+    57 00000010 4154                    push r12
+    58 00000012 4155                    push r13
+    59 00000014 4156                    push r14
+    60 00000016 4157                    push r15
+    61 00000018 53                      push rbx
+    62 00000019 9C                      pushf
+    63                                  
+    64 0000001A 6AFF                    push qword -1                           ; Extra push onto stack to make even # of pushes.
+    65                                  
+    66 0000001C 4989FC                  mov r12, rdi            ; array
+    67 0000001F 4989F5                  mov r13, rsi            ; size of array
+    68                                  
+    69 00000022 41BE00000000            mov r14, 0              ; counter for iteration.
+    70 00000028 41BF00000000            mov r15, 0              ; sum of the squared values in array.
+    71                                  
+    72                                  beginloop:
+    73                                  
+    74 0000002E 4D39EE                  cmp r14, r13
+    75 00000031 7D12                    jge endloop
+    76                                  
+    77 00000033 4F8B04F4                mov r8, [r12 + r14 * 8]
+    78 00000037 4C89C0                  mov rax, r8
+    79                                  
+    80 0000003A 49F7E8                  imul r8
+    81 0000003D 4901C7                  add r15, rax
+    82                                  
+    83 00000040 49FFC6                  inc r14
+    84                                  
+    85 00000043 EBE9                    jmp beginloop
+    86                                  
+    87                                  endloop:
+    88                                  
+    89                                  ; Restores all backed up registers to their original state.
+    90 00000045 58                      pop rax                                ; Remove extra push of -1 from stack.
+    91 00000046 4C89F8                  mov qword rax, r15
+    92 00000049 9D                      popf                                                       
+    93 0000004A 5B                      pop rbx                                                     
+    94 0000004B 415F                    pop r15                                                     
+    95 0000004D 415E                    pop r14                                                      
+    96 0000004F 415D                    pop r13                                                      
+    97 00000051 415C                    pop r12                                                      
+    98 00000053 415B                    pop r11                                                     
+    99 00000055 415A                    pop r10                                                     
+   100 00000057 4159                    pop r9                                                      
+   101 00000059 4158                    pop r8                                                      
+   102 0000005B 59                      pop rcx                                                     
+   103 0000005C 5A                      pop rdx                                                     
+   104 0000005D 5E                      pop rsi                                                     
+   105 0000005E 5F                      pop rdi                                                     
+   106 0000005F 5D                      pop rbp
+   107                                  
+   108 00000060 C3                      ret

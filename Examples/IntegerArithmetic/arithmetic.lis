@@ -1,0 +1,307 @@
+     1                                  ;*****************************************************************************************************************************
+     2                                  ;Program name: "Integer Arithmetic".  This program demonstrates how to input and output long integer data and how to per-   *
+     3                                  ;form a few simple operations on integers.  Copyright (C) 2019 Floyd Holliday                                               *
+     4                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ;version 3 as published by the Free Software Foundation.                                                                    *
+     6                                  ;This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied         *
+     7                                  ;Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+     8                                  ;A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+     9                                  ;*****************************************************************************************************************************
+    10                                  
+    11                                  ;=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    12                                  ;
+    13                                  ;Author information
+    14                                  ;  Author name: Floyd Holliday
+    15                                  ;  Author email: holliday@fullerton.edu
+    16                                  ;
+    17                                  ;Program information
+    18                                  ;  Program name: Integer Arithmetic
+    19                                  ;  Programming languages: One modules in C and one module in X86
+    20                                  ;  Date program began:     2012-Nov-01
+    21                                  ;  Date program completed: 2012-Nov-04
+    22                                  ;  Date comments upgraded: 2019-July-01 and 2020-Jan-22
+    23                                  ;  Files in this program: integerdriver.c, arithmetic.asm, r.sh
+    24                                  ;  Status: Complete.  No errors found after extensive testing.
+    25                                  ;
+    26                                  ;References for this program
+    27                                  ;  Jorgensen, X86-64 Assembly Language Programming with Ubuntu, Version 1.1.40.
+    28                                  ;  Robert Plantz, X86 Assembly Programming.  [No longer available as a free download]
+    29                                  ;
+    30                                  ;Purpose
+    31                                  ;  Show how to perform arithmetic operations on two operands both of type long integer.
+    32                                  ;  Show how to handle overflow of multiplication.
+    33                                  ;
+    34                                  ;This file
+    35                                  ;   File name: arithmetic.asm
+    36                                  ;   Language: X86-64 with Intel syntax
+    37                                  ;   Max page width: 132 columns
+    38                                  ;   Assemble: nasm -f elf64 -l arithmetic.lis -o arithmetic.o arithmetic.asm
+    39                                  ;   Link: gcc -m64 -no-pie -o current.out driver.o arithmetic.o        ;Ref Jorgensen, page 226, "-no-pie"
+    40                                  ;   Optimal print specification: 132 columns width, 7 points, monospace, 8½x11 paper
+    41                                  
+    42                                  
+    43                                  
+    44                                  
+    45                                  
+    46                                  
+    47                                  ;%include "debug.inc"                             ;Not used in this program: this line may be safely deleted.
+    48                                  
+    49                                  ;Declare the names of programs called from this X86 source file, but whose own source code is not in this file.
+    50                                  extern printf                                     ;Reference: Jorgensen book 1.1.40, page48
+    51                                  extern scanf
+    52                                  
+    53                                  ;Declare constants if needed
+    54                                  null equ 0                                        ;Reference: Jorgensen book 1.1.40, page 34.
+    55                                  newline equ 10
+    56                                  
+    57                                  global arithmetic                                 ;Make this program callable by other programs.
+    58                                  
+    59                                  segment .data                                     ;Initialized data are placed in this segment
+    60                                  
+    61 00000000 57656C636F6D652074-     welcome db "Welcome to Integer Arithmetic", newline, null
+    61 00000009 6F20496E7465676572-
+    61 00000012 2041726974686D6574-
+    61 0000001B 69630A00           
+    62 0000001F 456E74657220746865-     promptforinteger1 db "Enter the first signed integer: ", null
+    62 00000028 206669727374207369-
+    62 00000031 676E656420696E7465-
+    62 0000003A 6765723A2000       
+    63 00000040 596F7520656E746572-     outputformat1 db "You entered %ld = 0x%lx", 10, 0
+    63 00000049 656420256C64203D20-
+    63 00000052 3078256C780A00     
+    64 00000059 257300                  stringoutputformat db "%s", 0
+    65 0000005C 256C6400                signedintegerinputformat db "%ld", null
+    66 00000060 456E74657220746865-     promptforinteger2 db "Enter the second signed integer: ", 0
+    66 00000069 207365636F6E642073-
+    66 00000072 69676E656420696E74-
+    66 0000007B 656765723A2000     
+    67 00000082 5468652070726F6475-     outputformat2long db "The product is %ld = 0x%lx", 10, 0
+    67 0000008B 637420697320256C64-
+    67 00000094 203D203078256C780A-
+    67 0000009D 00                 
+    68 0000009E 5468652070726F6475-     outputformat2short db "The product is 0x%lx", 10, 0
+    68 000000A7 637420697320307825-
+    68 000000B0 6C780A00           
+    69 000000B4 5468652071756F7469-     outputformat3 db "The quotient is %ld = 0x%lx, and the remainder is %ld = 0x%lx", 10 , 0
+    69 000000BD 656E7420697320256C-
+    69 000000C6 64203D203078256C78-
+    69 000000CF 2C20616E6420746865-
+    69 000000D8 2072656D61696E6465-
+    69 000000E1 7220697320256C6420-
+    69 000000EA 3D203078256C780A00 
+    70 000000F3 5468652070726F6475-     productformatlong db "The product requires more than 64 bits.  It's value is 0x%016lx%016lx", 10, 0
+    70 000000FC 637420726571756972-
+    70 00000105 6573206D6F72652074-
+    70 0000010E 68616E203634206269-
+    70 00000117 74732E202049742773-
+    70 00000120 2076616C7565206973-
+    70 00000129 203078253031366C78-
+    70 00000132 253031366C780A00   
+    71 0000013A 5468652070726F6475-     productformatshort db "The product is %ld = 0x%016lx", 10, 0
+    71 00000143 637420697320256C64-
+    71 0000014C 203D20307825303136-
+    71 00000155 6C780A00           
+    72 00000159 5468652071756F7469-     quotientformat db "The quotient is %ld = 0x%016lx", 10, 0
+    72 00000162 656E7420697320256C-
+    72 0000016B 64203D203078253031-
+    72 00000174 366C780A00         
+    73 00000179 5468652072656D6169-     remainderformat db "The remainder is %ld = 0x%016lx", 10, 0
+    73 00000182 6E6465722069732025-
+    73 0000018B 6C64203D2030782530-
+    73 00000194 31366C780A00       
+    74 0000019A 4920686F706520796F-     farewell db "I hope you enjoyed using my program as much as I enjoyed making it.  Bye.", 10, 0
+    74 000001A3 7520656E6A6F796564-
+    74 000001AC 207573696E67206D79-
+    74 000001B5 2070726F6772616D20-
+    74 000001BE 6173206D7563682061-
+    74 000001C7 73204920656E6A6F79-
+    74 000001D0 6564206D616B696E67-
+    74 000001D9 2069742E2020427965-
+    74 000001E2 2E0A00             
+    75                                  
+    76                                  segment .bss                                      ;Uninitialized data are declared in this segment
+    77                                  
+    78                                  ;Empty segment: there are no un-initialized arrays.
+    79                                  
+    80                                  segment .text                                     ;Instructions are placed in this segment
+    81                                  arithmetic:                                       ;Entry point for execution of this program.
+    82                                  
+    83                                  ;Back up the general purpose registers for the sole purpose of protecting the data of the caller.
+    84 00000000 55                      push rbp                                                    ;Backup rbp
+    85 00000001 4889E5                  mov  rbp,rsp                                                ;The base pointer now points to top of stack
+    86 00000004 57                      push rdi                                                    ;Backup rdi
+    87 00000005 56                      push rsi                                                    ;Backup rsi
+    88 00000006 52                      push rdx                                                    ;Backup rdx
+    89 00000007 51                      push rcx                                                    ;Backup rcx
+    90 00000008 4150                    push r8                                                     ;Backup r8
+    91 0000000A 4151                    push r9                                                     ;Backup r9
+    92 0000000C 4152                    push r10                                                    ;Backup r10
+    93 0000000E 4153                    push r11                                                    ;Backup r11
+    94 00000010 4154                    push r12                                                    ;Backup r12
+    95 00000012 4155                    push r13                                                    ;Backup r13
+    96 00000014 4156                    push r14                                                    ;Backup r14
+    97 00000016 4157                    push r15                                                    ;Backup r15
+    98 00000018 53                      push rbx                                                    ;Backup rbx
+    99 00000019 6AFF                    push qword -1                                                       ;Backup rflags
+   100                                  
+   101                                  ;There are 15 pushes above.  Make one more push of any value so that the number of pushes is an even number
+   102 0000001B 6AFF                    push qword -1                                               ;Now the number of pushes is even
+   103                                  ;Registers rax, rip, and rsp are usually not backed up.
+   104                                  
+   105                                  ;Output the welcome message                       ;This is a group of instructions jointly performing one task.
+   106 0000001D 48BF-                   mov qword rdi, stringoutputformat
+   106 0000001F [5900000000000000] 
+   107 00000027 48BE-                   mov qword rsi, welcome
+   107 00000029 [0000000000000000] 
+   108 00000031 B800000000              mov qword rax, 0
+   109 00000036 E8(00000000)            call printf
+   110                                  
+   111                                  ;Prompt for the first integer
+   112 0000003B 48BF-                   mov qword rdi, stringoutputformat
+   112 0000003D [5900000000000000] 
+   113 00000045 48BE-                   mov qword rsi, promptforinteger1                  ;Place the address of the prompt into rdi
+   113 00000047 [1F00000000000000] 
+   114 0000004F B800000000              mov qword rax, 0
+   115 00000054 E8(00000000)            call printf
+   116                                  
+   117                                  ;Input the first integer
+   118 00000059 48BF-                   mov qword rdi, signedintegerinputformat
+   118 0000005B [5C00000000000000] 
+   119 00000063 6AFF                    push qword -1                                     ;Place an arbitrary value on the stack; -1 is ok, any quad value will work
+   120 00000065 4889E6                  mov qword rsi, rsp                                ;Now rsi points to that dummy value on the stack
+   121 00000068 B800000000              mov qword rax, 0                                  ;No vector registers
+   122 0000006D E8(00000000)            call scanf                                        ;Call the external function; the new value is placed into the location that rsi points to
+   123 00000072 415E                    pop qword r14                                     ;First inputted integer is saved in r14
+   124                                  
+   125                                  ;Output the value previously entered
+   126 00000074 48BF-                   mov qword rdi, outputformat1
+   126 00000076 [4000000000000000] 
+   127 0000007E 4C89F6                  mov rsi, r14                    ;Integar is in r14
+   128 00000081 4C89F2                  mov qword rdx, r14                                ;Both rsi and rdx hold the inputted value as well as r14
+   129 00000084 B800000000              mov qword rax, 0
+   130 00000089 E8(00000000)            call printf
+   131                                  
+   132                                  ;Output a prompt for the second integer
+   133 0000008E 48BF-                   mov qword rdi, stringoutputformat
+   133 00000090 [5900000000000000] 
+   134 00000098 48BE-                   mov qword rsi, promptforinteger2
+   134 0000009A [6000000000000000] 
+   135 000000A2 B800000000              mov qword rax, 0
+   136 000000A7 E8(00000000)            call printf
+   137                                  
+   138                                  ;Input the second integer
+   139 000000AC 48BF-                   mov qword rdi, signedintegerinputformat
+   139 000000AE [5C00000000000000] 
+   140 000000B6 68E7030000              push qword 999                                    ;Place an arbitrary value on the stack
+   141 000000BB 4889E6                  mov qword rsi, rsp                                ;Now rsi points to the top of the stack
+   142 000000BE B800000000              mov qword rax, 0
+   143 000000C3 E8(00000000)            call scanf                                        ;The new value is placed on top of the stack
+   144 000000C8 415F                    pop r15                                           ;The second inputted value is in r15 for safekeeping
+   145                                  
+   146                                  ;Output the value previously entered
+   147 000000CA 48BF-                   mov qword rdi, outputformat1                                   
+   147 000000CC [4000000000000000] 
+   148 000000D4 4C89FE                  mov qword rsi, r15
+   149 000000D7 4C89FA                  mov qword rdx, r15                                ;All 3 registers hold a copy of the inputted value: rsi, rdx, r15
+   150 000000DA B800000000              mov qword rax, 0
+   151 000000DF E8(00000000)            call printf
+   152                                  
+   153                                  ;Perform the signed multiplication of two integers: rdx:rax <-- rax * r15 where rax holds a copy of the first input
+   154                                  ;Multiplication is explained in the Jorgensen book, version 1.1.40, starting page 87 if the two operands are unsigned
+   155                                  ;integers, and starting on page 91 if both operands are signed integers.
+   156                                  ;Summary: this is what the Jorgensen book say to do to multiply two 64-bit integers using the single operand form of 
+   157                                  ;multiplication: 
+   158                                  ;1.  Copy the first operand into rax.
+   159                                  ;2.  Make sure rdx is available (does not now hold valuable data)
+   160                                  ;3.  Copy the second operand into another available register, say r15
+   161                                  ;4.  Use the instruction "imul r15" without quotes assuming that either operand may be a signed integer.
+   162                                  ;5.  The product will be in rax -- unless the product is so large it will not fit into the 64 bits provided by rax.  In this
+   163                                  ;    later case the product will span two registers rdx:rax.  We use this 'single operand' technique below.
+   164                                  
+   165 000000E4 4C89F0                  mov qword rax, r14                                ;Copy the first factor (operand) to rax
+   166 000000E7 BA00000000              mov qword rdx, 0                                  ;rdx contains no data we wish to save.
+   167 000000EC 49F7EF                  imul r15                                          ;Use the signed multiplication instruction 'imul' followed by the second factor
+   168                                  
+   169                                  ;Now the product r14*r15 is in the pair rdx:rax. If the product will fit entirely in 64 bits then it will be store completely 
+   170                                  ;in rax and rdx is not needed.  Nevertheless, we save both registers in the following 2 instructions.
+   171 000000EF 4989D4                  mov qword r12, rdx                                ;High order bits are saved in r12
+   172 000000F2 4989C5                  mov qword r13, rax                                ;Low order bits are saved in r13
+   173                                  
+   174                                  ;Several references were consulted.  All stated that in the case of imul the flags cf and of change in unison.  Specifically,
+   175                                  ;when the product overflows beyond 64 bits both cf and of are set to 1, otherwise they are unset to 0.  We use the of flag here.
+   176                                  ;The 'jo' in the next instruction means continue processing if the of variable called flag is equal to 1.
+   177 000000F5 701C                    jo multiplicationoverflow                         ;if(of==true) then continue execution at the multiplicationoverflow marker.
+   178                                  
+   179                                  ;Output the computed product where 64 or less bits are needed for storage.
+   180 000000F7 48BF-                   mov qword rdi, productformatshort
+   180 000000F9 [3A01000000000000] 
+   181 00000101 4C89EE                  mov qword rsi, r13                                ;The low order bits are placed in the second parameter
+   182 00000104 4C89EA                  mov qword rdx, r13                                ;The exact same bits are placed in the third parameter
+   183 00000107 B800000000              mov qword rax, 0                                  ;Zero in rax
+   184 0000010C E8(00000000)            call printf
+   185 00000111 EB1A                    jmp divisionsection                               ;Continue execution at the divisionsection marker
+   186                                  
+   187                                  multiplicationoverflow:
+   188                                  ;Output the computed product where more than 64 bits are needed for storage of the product.
+   189 00000113 48BF-                   mov qword rdi, productformatlong
+   189 00000115 [F300000000000000] 
+   190 0000011D 4C89E6                  mov qword rsi, r12                                ;The high order bits are placed in the second parameter
+   191 00000120 4C89EA                  mov qword rdx, r13                                ;The low order bits are placed in the third parameter
+   192 00000123 B800000000              mov qword rax, 0                                  ;Zero in rax indicates no vector parameters
+   193 00000128 E8(00000000)            call printf
+   194                                  
+   195                                  divisionsection:
+   196                                  ;Divide the first integer by the second integer
+   197                                  ;Division of integers is explained in the Jorgensen book, version 1.1.40, starting on page 90.  If operands, dividend
+   198                                  ;and divisor, are unsigned use the instruction div, otherwise use the instruction idiv.  We have signed integers here
+   199                                  ;and therefore we use the assembly instruction idiv.  First it is necessary to set up the dividend pair rdx:rax.  The
+   200                                  ;Jorgensen book shows this setup on page 100.  We do the same thing directly below.
+   201 0000012D 4C89F0                  mov qword rax, r14                                ;The first integer is in rax
+   202 00000130 4899                    cqo                                               ;Sign extend the first integer to rdx:rax. Ref Jorgensen, page 777
+   203 00000132 49F7FF                  idiv r15                                          ;Divide rdx:rax by r15
+   204 00000135 4989D5                  mov r13, rdx                                      ;Save the remainder in r13 for later use
+   205                                  
+   206                                  ;Show the quotient
+   207 00000138 48BF-                   mov qword rdi, quotientformat
+   207 0000013A [5901000000000000] 
+   208 00000142 4889C6                  mov qword rsi, rax                                ;Copy the quotient to rsi
+   209 00000145 4889C2                  mov qword rdx, rax                                ;Copy the quotient to rdx
+   210 00000148 B800000000              mov qword rax, 0
+   211 0000014D E8(00000000)            call printf
+   212                                  
+   213                                  ;Show the remainder
+   214 00000152 48BF-                   mov qword rdi, remainderformat
+   214 00000154 [7901000000000000] 
+   215 0000015C 4C89EE                  mov qword rsi, r13                                ;Copy the remainder to rsi
+   216 0000015F 4C89EA                  mov qword rdx, r13                                ;Copy the remainder to rdx
+   217 00000162 B800000000              mov qword rax, 0
+   218 00000167 E8(00000000)            call printf
+   219                                  
+   220                                  ;Output the farewell message
+   221 0000016C 48BF-                   mov qword rdi, stringoutputformat
+   221 0000016E [5900000000000000] 
+   222 00000176 48BE-                   mov qword rsi, farewell                           ;The starting address of the string is placed into the second parameter.
+   222 00000178 [9A01000000000000] 
+   223 00000180 B800000000              mov qword rax, 0
+   224 00000185 E8(00000000)            call printf
+   225                                  
+   226                                  ;Restore the original values to the general registers before returning to the caller.
+   227 0000018A 58                      pop rax                                                     ;Remove the extra -1 from the stack
+   228 0000018B 58                      pop rax                                                        ;Restore rflags
+   229 0000018C 5B                      pop rbx                                                     ;Restore rbx
+   230 0000018D 415F                    pop r15                                                     ;Restore r15
+   231 0000018F 415E                    pop r14                                                     ;Restore r14
+   232 00000191 415D                    pop r13                                                     ;Restore r13
+   233 00000193 415C                    pop r12                                                     ;Restore r12
+   234 00000195 415B                    pop r11                                                     ;Restore r11
+   235 00000197 415A                    pop r10                                                     ;Restore r10
+   236 00000199 4159                    pop r9                                                      ;Restore r9
+   237 0000019B 4158                    pop r8                                                      ;Restore r8
+   238 0000019D 59                      pop rcx                                                     ;Restore rcx
+   239 0000019E 5A                      pop rdx                                                     ;Restore rdx
+   240 0000019F 5E                      pop rsi                                                     ;Restore rsi
+   241 000001A0 5F                      pop rdi                                                     ;Restore rdi
+   242 000001A1 5D                      pop rbp                                                     ;Restore rbp
+   243                                  
+   244 000001A2 B800000000              mov qword rax, 0                                  ;Return value 0 indicates successful conclusion.
+   245 000001A7 C3                      ret                                               ;Pop the integer stack and jump to the address represented by the popped value.

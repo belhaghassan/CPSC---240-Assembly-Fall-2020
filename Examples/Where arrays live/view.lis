@@ -1,0 +1,210 @@
+     1                                  ;Author name: Floyd Holliday
+     2                                  ;Author email: holliday@fullerton.edu
+     3                                  
+     4                                  ;Program name: View System Stack
+     5                                  ;Programming languages: C++ (driver), X86 (algorithm)
+     6                                  ;Date program began: April 2, 2017
+     7                                  ;Date of last update: February 1, 2019
+     8                                  ;Files in this program: stack-driver.cpp, stackdump.asm, r.sh
+     9                                  ;Status: Done.  No more work will be done on this program apart from fixing any reported errors.
+    10                                  ;Purpose: Show the state of the stack at an instant of time after 'dumpstack' was called and before it could execute its first instruction, namely: push rbp.
+    11                                  ;At that instant the top of stack contains the resumption address where executiion will resume when this assembly program returns to the caller.
+    12                                  
+    13                                  ;Purpose: Display the contents of the system stack based on the location of rsp.  This function, viewstack, will show a certain number of qwords inside the stack and another number of qwords outside the stack with top of stack, rsp, some where in the miid
+    14                                  
+    15                                  ;This file name: viewstack.asm
+    16                                  ;This file language: X86
+    17                                  ;This file syntax: Intex
+    18                                  ;Prototype: long unsigned int viewstack(long id, long unsigned int number_qwords_outside_stack, long unsigned int number_qwords_inside_stack);
+    19                                  ;This function can be called from any of the 3 languages we study: C or C++ or X86.
+    20                                  
+    21                                  ;Assemble: nasm -f elf64 -o dump.o -l dump.lis stackdump.asm
+    22                                  
+    23                                  ;Parameters passed in:
+    24                                  ;     rdi = identifying integer
+    25                                  ;     rsi = number of qwords below and outside tthe of stack, a positive integer
+    26                                  ;     rdx = number of qwords inside stack, a positive integer
+    27                                  ;Paramter passed out:
+    28                                  ;     rax = the address of the next instruction to execute when this function terminates.
+    29                                  ;     Notice that the returned value is not the instruction itself, but rather the address of the next instruction.
+    30                                  
+    31                                  
+    32                                  extern printf
+    33                                  global viewstack                                            ;This declaration allows the subprogram to be called from outside this file.
+    34                                  
+    35                                  segment .data                                               ;This segment declares initialized data
+    36                                  
+    37 00000000 537461636B2044756D-     stackheadformat db "Stack Dump # %d: ", 
+    37 00000009 7020232025643A20   
+    38 00000011 726270203D20253031-                     db "rbp = %016lx rsp = %016lx", 10, 
+    38 0000001A 366C7820727370203D-
+    38 00000023 20253031366C780A   
+    39 0000002B 4F6666736574202020-                     db "Offset    Address           Value", 10, 0
+    39 00000034 204164647265737320-
+    39 0000003D 202020202020202020-
+    39 00000046 2056616C75650A00   
+    40                                  
+    41 0000004E 252B35642020253031-     stacklineformat db "%+5d  %016lx  %016lx", 10, 0
+    41 00000057 366C78202025303136-
+    41 00000060 6C780A00           
+    42                                  
+    43                                  segment .bss                                                ;This segment declares uninitialized data
+    44                                      ;This segment is empty
+    45                                  
+    46                                  segment .text                                               ;Executable instructions appear in this segment
+    47                                  
+    48                                  viewstack:                                                  ;Where execution begins when this program is called.
+    49                                  
+    50                                  ;===== Backup all the registers that are used in this program =====================================================================
+    51 00000000 55                      push rbp                                                    ;Backup the base pointer
+    52 00000001 4889E5                  mov  rbp,rsp                                                ;Advance the base pointer to start of the current stack frame
+    53 00000004 57                      push rdi                                                    ;Backup rdi
+    54 00000005 56                      push rsi                                                    ;Backup rsi
+    55 00000006 52                      push rdx                                                    ;Backup rdx
+    56 00000007 51                      push rcx                                                    ;Backup rcx
+    57 00000008 4150                    push r8                                                     ;Backup r8
+    58 0000000A 4151                    push r9                                                     ;Backup r9
+    59 0000000C 4152                    push r10                                                    ;Backup r10
+    60 0000000E 4153                    push r11                                                    ;Backup r11: printf often changes r11
+    61 00000010 4154                    push r12                                                    ;Backup r12
+    62 00000012 4155                    push r13                                                    ;Backup r13
+    63 00000014 4156                    push r14                                                    ;Backup r14
+    64 00000016 4157                    push r15                                                    ;Backup r15
+    65 00000018 53                      push rbx                                                    ;Backup rbx
+    66 00000019 9C                      pushf                                                       ;Backup rflags
+    67                                  ;rax, rip, and rsp are intentionally not backed up.  r15 is not used explicitly in this program, but it is backed up nevertheless.
+    68                                  
+    69                                  ;===== Prepare to output the dump stack header =====================================================================================
+    70                                  ;At this time the integer stack has the following structure
+    71                                  ;              |---------------------------|
+    72                                  ;     rsp+20*8 | variable in caller        | = 5th variable declared in caller
+    73                                  ;              |---------------------------|
+    74                                  ;     rsp+19*8 | variable in caller        | = 4th variable declared in caller
+    75                                  ;              |---------------------------|
+    76                                  ;     rsp+18*8 | variable in caller        | = 3rd variable declared in caller
+    77                                  ;              |---------------------------|
+    78                                  ;     rsp+17*8 | variable in caller        | = 2nd variable declared in caller
+    79                                  ;              |---------------------------|
+    80                                  ;     rsp+16*8 | variable in caller        | = 1st variable declared in caller
+    81                                  ;              |---------------------------|
+    82                                  ;     rsp+15*8 | return address            | = the stack pointer was here immediately before execution was handed off to the called program
+    83                                  ;              |---------------------------|
+    84                                  ;     rsp+14*8 | rbp                       | = base pointer of caller program pushed by this x86 module
+    85                                  ;              |---------------------------|
+    86                                  ;     rsp+13*8 | rdi                       | = arbitrary number passed in from caller module
+    87                                  ;              |---------------------------|
+    88                                  ;     rsp+12*8 | rsi                       | = number of quadwords outside of stack
+    89                                  ;              |---------------------------|
+    90                                  ;     rsp+11*8 | rdx                       | = number of quadwords inside of stack not counting the top qword
+    91                                  ;              |---------------------------|
+    92                                  ;     rsp+10*8 | rcx                       |
+    93                                  ;              |---------------------------|
+    94                                  ;     rsp+9*8  | r8                        |
+    95                                  ;              |---------------------------|
+    96                                  ;     rsp+8*8  | r9                        |
+    97                                  ;              |---------------------------|
+    98                                  ;     rsp+7*8  | r10                       |
+    99                                  ;              |---------------------------|
+   100                                  ;     rsp+6*8  | r11                       |
+   101                                  ;              |---------------------------|
+   102                                  ;     rsp+5*8  | r12                       |
+   103                                  ;              |---------------------------|
+   104                                  ;     rsp+4*8  | r13                       |
+   105                                  ;              |---------------------------|
+   106                                  ;     rsp+3*8  | r14                       |
+   107                                  ;              |---------------------------|
+   108                                  ;     rsp+2*8  | r15                       |
+   109                                  ;              |---------------------------|
+   110                                  ;     rsp+1*8  | rbx                       |
+   111                                  ;              |---------------------------|
+   112                                  ;     rsp+0    | rflags                    |
+   113                                  ;              |---------------------------|
+   114                                  
+   115                                  ;Observation: the distance in bytes from the current position of rsp and the location of "return address" is 15*8 = 120 bytes.
+   116                                  ;This number, 120, will be needed further down in this program.
+   117                                  
+   118                                  
+   119                                  ;===== Output the header prior to displaying the contents of memory =======================================================================
+   120                                  ;Assign values to be passed to printf for outputting the dump stack header
+   121 0000001A 48BF-                   mov qword rdi, stackheadformat                              ;The format of the header
+   121 0000001C [0000000000000000] 
+   122 00000024 488B742468              mov qword rsi, [rsp+13*8]                                   ;Arbitrary number passed in from caller
+   123 00000029 488B542470              mov qword rdx, [rsp+14*8]                                   ;Base pointer of the stack frame of this x86 module
+   124 0000002E 4889E1                  mov rcx,rsp                                                 ;Copy the current value of rsp into rcx
+   125 00000031 4883C178                add rcx,120                                                 ;rcx hold the pointer to the top of stack at the time this x86 module was called
+   126 00000035 B800000000              mov qword rax, 0                                            ;Zero in rax signals to printf that no vector registers (xmm) are used.
+   127 0000003A E8(00000000)            call printf
+   128                                  
+   129                                  
+   130                                  ;===== Set up conditions before entering a loop ===========================================================================================
+   131                                  ;Retrieve from the stack the number of qwords within the stack to be displayed
+   132 0000003F 4C8B6C2458              mov qword r13, [rsp+11*8]                                   ;r13 will serve as loop counter variable
+   133                                  
+   134                                  ;Retrieve from the stack the number of qwords outside the stack to be displayed
+   135 00000044 4C8B742460              mov qword r14, [rsp+12*8]                                   ;r14 will help define the loop termination condition
+   136 00000049 49F7DE                  neg r14                                                     ;Negate r14.  Now r14 contains a negative or zero integer
+   137                                  
+   138                                  
+   139                                  ;Setup rbx as offset number that will appear in the first column of output.
+   140 0000004C 488B442458              mov qword rax, [rsp+11*8]                                   ;Retrieve from the stack the number of qwords within the stack to be displayed.
+   141 00000051 41BC08000000            mov qword r12, 8                                            ;Temporarily store 8 in r12
+   142 00000057 49F7E4                  mul r12                                                     ;Multiply rax by 8 bytes per qword: assume product does not overflow into rdx
+   143 0000005A 4889C3                  mov qword rbx, rax                                          ;Save the product in rbx (column 1 of output)
+   144                                  
+   145                                  
+   146                                  ;Setup r12 as the address that will appear in the second column of output
+   147 0000005D 4989E4                  mov r12,rsp                                                 ;Copy the current address of top of stack to r12
+   148 00000060 4901DC                  add r12,rbx                                                 ;Add number of bytes of data inside of stack to be outputted
+   149 00000063 4983C478                add r12,120                                                 ;Add the distance between current rsp and the "return address"
+   150                                  
+   151                                  
+   152                                  beginloop: ;===== The top of the loop is here ============================================================================================
+   153                                  
+   154                                  ;===== Prepare to output one line of the body of the stack dump ===========================================================================
+   155                                  ;Follow the CCC-64 protocol
+   156 00000067 48BF-                   mov rdi, stacklineformat                                    ;Format for offset, address, and quadword value
+   156 00000069 [4E00000000000000] 
+   157 00000071 4889DE                  mov qword rsi, rbx                                          ;rbx stores the offset value (column 1 of the output)
+   158 00000074 4C89E2                  mov qword rdx, r12                                          ;r12 stores the address to be displayed
+   159 00000077 488B0A                  mov qword rcx, [rdx]                                        ;rcx receives the contents of memory at the address to be displayed
+   160 0000007A B800000000              mov qword rax, 0                                            ;No vector registers contain data for printf
+   161 0000007F E8(00000000)            call printf
+   162                                  
+   163                                  
+   164                                  ;===== Advance the variables 8 bytes in the direction of small addresses ==================================================================
+   165 00000084 4883EB08                sub rbx, 8                                                  ;rbx stores column 1, which is the offset value
+   166 00000088 4983EC08                sub r12, 8                                                  ;r12 stores column 2, which is the address value
+   167 0000008C 49FFCD                  dec r13                                                     ;r13 is loop counter; it decrements from high value to low (possibly negative) value
+   168                                  
+   169                                  
+   170                                  ;===== Check for loop termination condition ===============================================================================================
+   171 0000008F 4D39F5                  cmp r13, r14                                                ;Compare loop variable r13 with terminating value r14
+   172 00000092 7DD3                    jge beginloop                                               ;If r13 >= r14 then continue to iterate
+   173                                  
+   174                                  
+   175                                  ;===== Restore original values to integer registers =======================================================================================
+   176 00000094 9D                      popf                                                        ;Restore rflags
+   177 00000095 5B                      pop rbx                                                     ;Restore rbx
+   178 00000096 415F                    pop r15                                                     ;Restore r15
+   179 00000098 415E                    pop r14                                                     ;Restore r14
+   180 0000009A 415D                    pop r13                                                     ;Restore r13
+   181 0000009C 415C                    pop r12                                                     ;Restore r12
+   182 0000009E 415B                    pop r11                                                     ;Restore r11
+   183 000000A0 415A                    pop r10                                                     ;Restore r10
+   184 000000A2 4159                    pop r9                                                      ;Restore r9
+   185 000000A4 4158                    pop r8                                                      ;Restore r8
+   186 000000A6 59                      pop rcx                                                     ;Restore rcx
+   187 000000A7 5A                      pop rdx                                                     ;Restore rdx
+   188 000000A8 5E                      pop rsi                                                     ;Restore rsi
+   189 000000A9 5F                      pop rdi                                                     ;Restore rdi
+   190 000000AA 5D                      pop rbp                                                     ;Restore rbp
+   191                                  
+   192                                  ;Now the number of pushes equals the number of pops.
+   193                                  ;
+   194                                  ;Pick a number to send back to the calling program.  We will send the address in code space where is located the next instruction for the caller.
+   195 000000AB 488B0424                mov rax,[rsp]
+   196                                  
+   197                                  ;It is time to leave this program.
+   198 000000AF C3                      ret                                                         ;Pop the qword on top of the stack into rip
+   199                                  
+   200                                  ;End of showstacksubprogram

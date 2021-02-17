@@ -1,0 +1,351 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;Program name: "Geometric Mean".  This program demonstrates how to compute the geometric mean of a set of floating point    *
+     3                                  ;numbers stored in an array of quadwords.  Copyright (C) 2018  Floyd Holliday                                               *                                                                             *
+     4                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ;version 3 as published by the Free Software Foundation.                                                                    *
+     6                                  ;This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied         *
+     7                                  ;warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+     8                                  ;A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+     9                                  ;****************************************************************************************************************************
+    10                                  
+    11                                  
+    12                                  
+    13                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3=========4=========5=========6=========7**
+    14                                  
+    15                                  ;Author information
+    16                                  ;  Author name: Floyd Holliday
+    17                                  ;  Author email: holliday@fullerton.edu
+    18                                  ;
+    19                                  ;Program information
+    20                                  ;  Program name: Geometric Mean
+    21                                  ;  Programming languages: C++. X86, C.
+    22                                  ;  Date program began: 2019-Feb-20
+    23                                  ;  Date of last update: 2019-Feb-28
+    24                                  ;  Comments reorganized: 2019-Mar-10
+    25                                  ;  Files in the program: geometric-main.c, geometric-controller.asm, fill-array.cpp, display.c, run.sh
+    26                                  ;
+    27                                  ;Purpose
+    28                                  ;  Compute the Geometric Mean as a mathematical quantity used in statistics.
+    29                                  ;  For learning purposes: Demonstrate use of SSE registers (xmm's), Demonstrate how to use the cpu clock to measure runtime.
+    30                                  ;
+    31                                  ;This file
+    32                                  ;  File name: geometric-controller.asm
+    33                                  ;  Language: X86-64
+    34                                  ;  Syntax: Intel
+    35                                  ;  Max page width: 136 columns
+    36                                  ;  Optimal print specification: Landscape, 7-point font, monospace, 136 columns, 8½x11 paper
+    37                                  ;  Assemble: nasm -f elf64 -l control.lis -o control.o geometric-controller.asm
+    38                                  ;  Comments begin column 61
+    39                                  ;  References: Seyfarth, Chapter 10
+    40                                  ;
+    41                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3=========4=========5=========6=========7**
+    42                                  
+    43                                  ;
+    44                                  ;===== Begin code area ====================================================================================================================================================
+    45                                  
+    46                                  ;%include "savedata.inc"                                     ;Not used in this program.  External macros that assist in data backup.
+    47                                  
+    48                                  ;%include "debug.inc"                                        ;Not now in use.  The debug tool was used during the development stages of this program.
+    49                                  
+    50                                  extern printf                                               ;External C++ function for writing to standard output device
+    51                                  
+    52                                  extern scanf                                                ;External C++ function for reading from the standard input device
+    53                                  
+    54                                  extern get_data                                             ;The external function will file a passed array with qword data.
+    55                                  
+    56                                  extern put_data
+    57                                  
+    58                                  extern pow
+    59                                  
+    60                                  global geometric_mean                                        ;This makes array_tools callable by functions outside of this file.
+    61                                  
+    62                                  segment .data                                               ;Place initialized data here
+    63                                  
+    64                                  ;===== Declare some messages ==============================================================================================================================================
+    65                                  ;The identifiers in this segment are quadword pointers to ascii strings stored in heap space.  They are not variables.  They are not constants.  There are no constants in
+    66                                  ;assembly programming.  There are no variables in assembly programming: the registers assume the role of variables.
+    67                                  
+    68 00000000 546865205838362063-     initialmessage db "The X86 controller subprogram is now executing.", 10, 0
+    68 00000009 6F6E74726F6C6C6572-
+    68 00000012 2073756270726F6772-
+    68 0000001B 616D206973206E6F77-
+    68 00000024 20657865637574696E-
+    68 0000002D 672E0A00           
+    69                                  
+    70 00000031 546865206669727374-     arrayaddressmessage db "The first element of the array is located at 0x%016lx in the heap space", 10, 0
+    70 0000003A 20656C656D656E7420-
+    70 00000043 6F6620746865206172-
+    70 0000004C 726179206973206C6F-
+    70 00000055 636174656420617420-
+    70 0000005E 3078253031366C7820-
+    70 00000067 696E20746865206865-
+    70 00000070 61702073706163650A-
+    70 00000079 00                 
+    71                                  
+    72 0000007A 546865736520617265-     message_about_array db "These are the values now stored in the array.",10,0
+    72 00000083 207468652076616C75-
+    72 0000008C 6573206E6F77207374-
+    72 00000095 6F72656420696E2074-
+    72 0000009E 68652061727261792E-
+    72 000000A7 0A00               
+    73                                  
+    74 000000A9 5468652073756D206F-     longfloatform db "The sum of numbers in the array is %14.10lf", 10, 0
+    74 000000B2 66206E756D62657273-
+    74 000000BB 20696E207468652061-
+    74 000000C4 727261792069732025-
+    74 000000CD 31342E31306C660A00 
+    75                                  
+    76 000000D6 5468652070726F6475-     product_message db "The product of the numbers in the array is %-3.15lf", 10, 0
+    76 000000DF 6374206F6620746865-
+    76 000000E8 206E756D6265727320-
+    76 000000F1 696E20746865206172-
+    76 000000FA 72617920697320252D-
+    76 00000103 332E31356C660A00   
+    77                                  
+    78 0000010B 5468652067656F6D65-     geometric_message db "The geometric mean of all the numbers in the array is %5.16lf",10,0
+    78 00000114 74726963206D65616E-
+    78 0000011D 206F6620616C6C2074-
+    78 00000126 6865206E756D626572-
+    78 0000012F 7320696E2074686520-
+    78 00000138 617272617920697320-
+    78 00000141 25352E31366C660A00 
+    79                                  
+    80 0000014A 546865204350552075-     elapsed_time_message db "The CPU used %ld tics or 0x%016lx for computing the geometric mean.",10,0
+    80 00000153 73656420256C642074-
+    80 0000015C 696373206F72203078-
+    80 00000165 253031366C7820666F-
+    80 0000016E 7220636F6D70757469-
+    80 00000177 6E6720746865206765-
+    80 00000180 6F6D6574726963206D-
+    80 00000189 65616E2E0A00       
+    81                                  
+    82 0000018F 5468652067656F6D65-     goodbye db "The geometric mean written in X86 will now return execution to the main function.",10,10,0
+    82 00000198 74726963206D65616E-
+    82 000001A1 207772697474656E20-
+    82 000001AA 696E20583836207769-
+    82 000001B3 6C6C206E6F77207265-
+    82 000001BC 7475726E2065786563-
+    82 000001C5 7574696F6E20746F20-
+    82 000001CE 746865206D61696E20-
+    82 000001D7 66756E6374696F6E2E-
+    82 000001E0 0A0A00             
+    83                                  
+    84 000001E3 257300                  stringformat db "%s", 0                                     ;general string format
+    85                                  
+    86                                  segment .bss                                                ;Declare pointers to un-initialized static space in this segment.
+    87                                  
+    88 00000000 <res 000000E0>          academic resq 28                                            ;Declare a static array for demonstration purposes.
+    89                                  
+    90                                  ;==========================================================================================================================================================================
+    91                                  ;===== Begin the application here: show how to input and output floating point numbers ====================================================================================
+    92                                  ;==========================================================================================================================================================================
+    93                                  
+    94                                  segment .text                                               ;Place executable instructions in this segment.
+    95                                  
+    96                                  geometric_mean:                                             ;Entry point.  Execution begins here.
+    97                                  
+    98                                  ;The pushes that follow are here to backup the data in GPRs placed there by the calling module.  It is probable that the caller
+    99                                  ;already backed up his own data before making the call -- however, we never know for sure.
+   100 00000000 55                      push       rbp                                              ;Save a copy of the stack base pointer
+   101 00000001 4889E5                  mov        rbp, rsp                                         ;We do this in order to be 100% compatible with C and C++.
+   102 00000004 53                      push       rbx                                              ;Back up rbx
+   103 00000005 51                      push       rcx                                              ;Back up rcx
+   104 00000006 52                      push       rdx                                              ;Back up rdx
+   105 00000007 56                      push       rsi                                              ;Back up rsi
+   106 00000008 57                      push       rdi                                              ;Back up rdi
+   107 00000009 4150                    push       r8                                               ;Back up r8
+   108 0000000B 4151                    push       r9                                               ;Back up r9
+   109 0000000D 4152                    push       r10                                              ;Back up r10
+   110 0000000F 4153                    push       r11                                              ;Back up r11
+   111 00000011 4154                    push       r12                                              ;Back up r12
+   112 00000013 4155                    push       r13                                              ;Back up r13
+   113 00000015 4156                    push       r14                                              ;Back up r14
+   114 00000017 4157                    push       r15                                              ;Back up r15
+   115 00000019 9C                      pushf                                                       ;Back up rflags
+   116                                  
+   117                                  ;=========== Show the initial message =================================================================================================
+   118                                  
+   119 0000001A B800000000              mov qword  rax, 0                                           ;No data from SSE will be printed
+   120 0000001F 48BF-                   mov        rdi, stringformat                                ;"%s"
+   120 00000021 [E301000000000000] 
+   121 00000029 48BE-                   mov        rsi, initialmessage                              ;"The X86 controller subprogram is now executing."
+   121 0000002B [0000000000000000] 
+   122 00000033 E8(00000000)            call       printf                                           ;Call a library function to make the output
+   123                                  
+   124                                  ;========== Manage the array declared in this module ==================================================================================
+   125                                  
+   126 00000038 49BE-                   mov        r14, academic                                    ;r14 points to the start of the array.  r14 is constant in this module.
+   126 0000003A [0000000000000000] 
+   127                                  
+   128                                  ;Find the address where the array academic is really stored.  Remember that academic is static.
+   129 00000042 B800000000              mov qword  rax, 0                                           ;No data from SSE will be printed
+   130 00000047 48BF-                   mov        rdi, arrayaddressmessage                         ;"The first element of the array is located at 0x%016lx in the heap space"
+   130 00000049 [3100000000000000] 
+   131 00000051 4C89F6                  mov        rsi, r14                                         ;rsi has the address of the start of the array
+   132 00000054 E8(00000000)            call       printf
+   133                                  
+   134                                  ;=========== Call a function that will input some numbers into the array ==============================================================
+   135                                  
+   136 00000059 B800000000              mov qword  rax, 0                                           ;0 is the number of xmm registers involved in the coming call.
+   137 0000005E 4C89F7                  mov        rdi, r14                                         ;rdi points to the first cell of the array
+   138 00000061 BE1C000000              mov        rsi, 28                                          ;28 = number of qwords in the array academic
+   139 00000066 E8(00000000)            call       get_data
+   140 0000006B 4989C5                  mov        r13, rax                                         ;r13 holds the number of numbers now in the array academic
+   141                                  
+   142                                  ;========== Identify the data that will be displayed ==================================================================================
+   143                                  
+   144 0000006E B800000000              mov qword rax, 0
+   145 00000073 48BF-                   mov        rdi, message_about_array                         ;These are the values now stored in the array.
+   145 00000075 [7A00000000000000] 
+   146 0000007D E8(00000000)            call       printf
+   147                                  
+   148                                  ;=========== Show the contents recently placed into the array r14 =====================================================================
+   149                                  
+   150 00000082 B800000000              mov qword  rax, 0                                           ;0 is the number of xmm registers involved in the coming call.
+   151 00000087 4C89F7                  mov        rdi, r14                                         ;rdi is a pointer to the start of the array
+   152 0000008A 4C89EE                  mov        rsi, r13                                         ;r13 is the true number of doubles in the array
+   153 0000008D E8(00000000)            call       put_data
+   154                                  
+   155                                  ;========== Compute the arithmetic sum of numbers in the array ========================================================================
+   156                                  
+   157 00000092 41BC00000000            mov        r12, 0                                           ;r12 is the index into the array.  r12 is initialized to zero
+   158 00000098 6A00                    push qword 0                                                ;64 zero bits are now on top of the stack
+   159 0000009A F2440F100424            movsd      xmm8, [rsp]                                      ;Zero out xmm8
+   160 000000A0 58                      pop        rax                                              ;Reverse the push of a few instructions earlier
+   161                                  
+   162                                  topofloop:
+   163 000000A1 4D39EC                  cmp        r12, r13                                         ;Is r12 >= r13?  If 'yes' then loop is finished
+   164 000000A4 7D16                    jge        outofloop
+   165 000000A6 4B8B04E6                mov        rax,[r14+8*r12]                                  ;Copy the current array element into rax
+   166 000000AA 50                      push       rax                                              ;Push the array element onto the stack
+   167 000000AB F2440F100C24            movsd      xmm9, [rsp]                                      ;Place a copy of the array element into xmm9
+   168 000000B1 F2450F58C1              addsd      xmm8, xmm9                                       ;Add the array element to the accummulator
+   169 000000B6 49FFC4                  inc        r12                                              ;The index into the array is incremented
+   170 000000B9 58                      pop        rax                                              ;pop the push of a few instuctions earlier
+   171 000000BA EBE5                    jmp        topofloop
+   172                                  outofloop:  
+   173                                  
+   174                                  ;========== Show the computed sum =====================================================================================================
+   175                                  
+   176 000000BC F2410F10C0              movsd       xmm0, xmm8
+   177 000000C1 B801000000              mov         rax, 1
+   178 000000C6 48BF-                   mov         rdi, longfloatform                              ;The sum of numbers in the array is %14.10lf", 10, 0
+   178 000000C8 [A900000000000000] 
+   179 000000D0 E8(00000000)            call        printf
+   180                                  
+   181                                  ;========== Read the time on the cpu clock and save that time =========================================================================
+   182                                  
+   183 000000D5 B800000000              mov qword  rax, 0                                           ;Make sure rax is zeroed out.  This may be un-necessary.
+   184 000000DA BA00000000              mov qword  rdx, 0
+   185 000000DF 0FA2                    cpuid
+   186 000000E1 0F31                    rdtsc                                                       ;Write the number of tics in edx:eax
+   187 000000E3 48C1E220                shl        rdx, 32                                          ;Shift the lower half of rdx to the upper half of rdx
+   188 000000E7 4809C2                  or         rdx, rax                                         ;Join the two half into a single register, namely: rdx
+   189 000000EA 4989D7                  mov        r15, rdx                                         ;Save the clock in a safe register: in this case r15.
+   190                                  
+   191                                  ;========== Compute the geometric mean of numbers in the array ========================================================================
+   192                                  
+   193 000000ED 48B8000000000000F0-     mov         rax, 0x3FF0000000000000                         ;1.0 is now in rax
+   193 000000F6 3F                 
+   194 000000F7 50                      push        rax
+   195 000000F8 F2440F100C24            movsd       xmm9, [rsp]                                     ;1.0 is now in xmm9
+   196 000000FE 58                      pop         rax
+   197 000000FF F2450F10F9              movsd       xmm15, xmm9                                     ;Place a backup copy of 1.0 in xmm15 for later use.
+   198 00000104 41BC00000000            mov qword   r12, 0                                          ;r12 = index variable into the array
+   199                                  
+   200                                  beginloop:
+   201 0000010A 4D39EC                  cmp         r12, r13                                        ;Is r12 >= r13?  If 'yes' then loop is finished
+   202 0000010D 7D10                    jge         loopisdone
+   203 0000010F F2470F1014E6            movsd       xmm10, [r14+8*r12]                              ;Copy array item numberr r12 to a floating point register
+   204 00000115 F2450F59CA              mulsd       xmm9, xmm10                                     ;Multiply
+   205 0000011A 49FFC4                  inc         r12
+   206 0000011D EBEB                    jmp         beginloop                                       ;Iterate this loop one more time.
+   207                                  loopisdone:
+   208                                  
+   209                                  ;========== Read the time on the cpu clock again =====================================================================================
+   210                                  
+   211 0000011F B800000000              mov qword  rax, 0                                           ;Make sure rax is zeroed out.  This may be un-necessary.
+   212 00000124 BA00000000              mov qword  rdx, 0
+   213 00000129 0FA2                    cpuid
+   214 0000012B 0F31                    rdtsc                                                       ;Write the number of tics in edx:eax
+   215 0000012D 48C1E220                shl        rdx, 32                                          ;Shift the lower half of rdx to the upper half of rdx
+   216 00000131 4809C2                  or         rdx, rax                                         ;Join the two half into a single register, namely: rdx
+   217                                  
+   218                                  ;========== Compute the elapsed time that was required to compute the geometric mean ==================================================
+   219                                  
+   220 00000134 4C29FA                  sub        rdx, r15                                         ;The elapsed time measured in tics is in rdx.
+   221 00000137 4989D7                  mov        r15, rdx                                         ;Copy elapsed time to r15 for safe keeping, which is safer than rdx
+   222                                  
+   223                                  ;========== Show the computed product =================================================================================================
+   224                                  
+   225 0000013A B801000000              mov         rax, 1                                          ;One xmm register will be used
+   226 0000013F 48BF-                   mov         rdi, product_message                            ;"The product of the numbers in the array is %-3.15"
+   226 00000141 [D600000000000000] 
+   227 00000149 F2410F10C1              movsd       xmm0, xmm9                                      ;Copy the product to xmm0
+   228 0000014E E8(00000000)            call        printf
+   229                                  
+   230                                  ;========== Compute the geometric mean ================================================================================================
+   231                                  
+   232 00000153 F24D0F2ADD              cvtsi2sd    xmm11, r13                                      ;The number of numbers in the array is now in xmm11
+   233 00000158 F2450F5EFB              divsd       xmm15, xmm11                                    ;The reciprocal of the number of numbers in the array is in xmm15
+   234                                  
+   235                                  ;Set up parameters to pass to the pow function
+   236 0000015D F2410F10C1              movsd       xmm0, xmm9                                      ;xmm0 holds the product of all the numbers in the array
+   237 00000162 F2410F10CF              movsd       xmm1, xmm15                                     ;xmm1 holds the reciprocal of the number of numbers in the array
+   238 00000167 B802000000              mov         rax, 2                                          ;The pow function expects to recieve data from two xmm registers
+   239 0000016C E8(00000000)            call        pow                                             ;Call a function in the C++ library
+   240                                  
+   241 00000171 F2440F10F8              movsd       xmm15, xmm0                                     ;Save a backup copy of the geometric mean
+   242                                  
+   243                                  ;========== Show the computed geometric mean ==========================================================================================
+   244                                  
+   245 00000176 B801000000              mov         rax, 1                                          ;printf will receive exactly one floating point number
+   246 0000017B 48BF-                   mov         rdi, geometric_message                          ;"The geometric mean of all the numbers in the array is %5.16lf",10,0
+   246 0000017D [0B01000000000000] 
+   247 00000185 E8(00000000)            call        printf
+   248                                  
+   249                                  ;========== Show how much time the cpu used to compute the geometric mean =============================================================
+   250                                  
+   251 0000018A B800000000              mov         rax, 0
+   252 0000018F 48BF-                   mov         rdi, elapsed_time_message                       ;"The CPU used %ld tics or 0x%016lx for computing the geometric mean."
+   252 00000191 [4A01000000000000] 
+   253 00000199 4C89FE                  mov         rsi, r15
+   254 0000019C 4C89FA                  mov         rdx, r15
+   255 0000019F E8(00000000)            call        printf
+   256                                  
+   257                                  ;===== Conclusion message =============================================================================================================
+   258                                  ;It is not necessary to be on a boundary to output a string.
+   259                                  
+   260 000001A4 B800000000              mov qword  rax, 0                                          ;No data from SSE will be printed
+   261 000001A9 48BF-                   mov        rdi, stringformat                               ;"%s"
+   261 000001AB [E301000000000000] 
+   262 000001B3 48BE-                   mov        rsi, goodbye                                    ;"The geometric mean written in X86 will now return control to the main function."
+   262 000001B5 [8F01000000000000] 
+   263 000001BD E8(00000000)            call       printf                                          ;Call a library function to do the hard work.
+   264                                  
+   265                                  ;========== Send a float number back to the caller ====================================================================================
+   266                                  
+   267 000001C2 F2410F10C7              movsd      xmm0, xmm15
+   268                                  
+   269                                  ;===== Restore GPRs with the values held when this module "geometric_mean" was called =================================================
+   270                                  
+   271 000001C7 9D                      popf                                                        ;Restore rflags
+   272 000001C8 415F                    pop        r15                                              ;Restore r15
+   273 000001CA 415E                    pop        r14                                              ;Restore r14
+   274 000001CC 415D                    pop        r13                                              ;Restore r13
+   275 000001CE 415C                    pop        r12                                              ;Restore r12
+   276 000001D0 415B                    pop        r11                                              ;Restore r11
+   277 000001D2 415A                    pop        r10                                              ;Restore r10
+   278 000001D4 4159                    pop        r9                                               ;Restore r9
+   279 000001D6 4158                    pop        r8                                               ;Restore r8
+   280 000001D8 5F                      pop        rdi                                              ;Restore rdi
+   281 000001D9 5E                      pop        rsi                                              ;Restore rsi
+   282 000001DA 5A                      pop        rdx                                              ;Restore rdx
+   283 000001DB 59                      pop        rcx                                              ;Restore rcx
+   284 000001DC 5B                      pop        rbx                                              ;Restore rbx
+   285 000001DD 5D                      pop        rbp                                              ;Return rbp to point to the base of the activation record of the caller.
+   286                                  ;Now the system stack is in the same state it was when this function began execution.
+   287                                  
+   288 000001DE C3                      ret                                                         ;Pop a qword from the stack into rip, and continue executing.
+   289                                  ;========== End of program "geometric_mean" located in the file geometric_controller ==================================================
+   290                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3=========4=========5=========6=========7**

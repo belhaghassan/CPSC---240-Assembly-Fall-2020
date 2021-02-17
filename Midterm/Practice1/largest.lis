@@ -1,0 +1,108 @@
+     1                                  extern printf
+     2                                  extern input_array
+     3                                  
+     4                                  global largest
+     5                                  
+     6                                  section .data
+     7 00000000 546865736520617265-         welcome db "These are words so I can see whats up", 10, 0
+     7 00000009 20776F72647320736F-
+     7 00000012 20492063616E207365-
+     7 0000001B 652077686174732075-
+     7 00000024 700A00             
+     8 00000027 257300                      string db "%s", 0
+     9 0000002A 256400                      number db "%d", 0
+    10                                  
+    11                                  section .bss
+    12 00000000 <res 00000320>              array: resq 100
+    13                                  
+    14                                  section .text
+    15                                  
+    16                                  largest:
+    17                                  
+    18                                  ; Back up all registers and set stack pointer to base pointer
+    19 00000000 55                      push rbp
+    20 00000001 4889E5                  mov rbp, rsp
+    21 00000004 57                      push rdi
+    22 00000005 56                      push rsi
+    23 00000006 52                      push rdx
+    24 00000007 51                      push rcx
+    25 00000008 4150                    push r8
+    26 0000000A 4151                    push r9
+    27 0000000C 4152                    push r10
+    28 0000000E 4153                    push r11
+    29 00000010 4154                    push r12
+    30 00000012 4155                    push r13
+    31 00000014 4156                    push r14
+    32 00000016 4157                    push r15
+    33 00000018 53                      push rbx
+    34 00000019 9C                      pushf
+    35 0000001A 50                      push rax                           ; Extra push to create even number of pushes
+    36 0000001B 50                      push rax
+    37                                  
+    38                                  ;14.  Make an asm function “largest” that will find the largest value in the array 
+    39                                  ;and return that number to the caller.  The prototype is   long  largest(long arr[ ], long count);
+    40 0000001C B800000000              mov rax, 0 
+    41 00000021 48BF-                   mov rdi, string
+    41 00000023 [2700000000000000] 
+    42 0000002B 48BE-                   mov rsi, welcome
+    42 0000002D [0000000000000000] 
+    43 00000035 E8(00000000)            call printf
+    44                                  
+    45                                  ;push qword -1
+    46 0000003A B800000000              mov rax, 0
+    47 0000003F 48BF-                   mov rdi, array
+    47 00000041 [0000000000000000] 
+    48 00000049 E8(00000000)            call input_array
+    49 0000004E 4989C4                  mov r12, rax            ; number of elements input into array
+    50 00000051 4158                    pop r8
+    51                                  
+    52 00000053 B800000000              mov rax, 0 
+    53 00000058 48BF-                   mov rdi, number
+    53 0000005A [2A00000000000000] 
+    54 00000062 4C89E6                  mov rsi, r12
+    55 00000065 E8(00000000)            call printf
+    56                                  
+    57 0000006A 41BD00000000            mov r13, 0              ; counter to iterate through array
+    58 00000070 4C8B3425[00000000]      mov r14, [array]        ; largest
+    59                                  
+    60                                  beginloop:
+    61                                  
+    62 00000078 4D39E5                  cmp r13, r12
+    63 0000007B 7D1C                    jge endloop
+    64                                  
+    65 0000007D 4E3B34ED[00000000]      cmp r14, [array + r13 * 8]                        ; compare largest value to next index
+    66 00000085 7C05                    jl newlargest
+    67                                  
+    68 00000087 49FFC5                  inc r13
+    69                                  
+    70 0000008A EBEC                    jmp beginloop
+    71                                  
+    72                                  newlargest:
+    73 0000008C 4E8B34ED[00000000]      mov r14, [array + r13 * 8]
+    74 00000094 49FFC5                  inc r13
+    75 00000097 EBDF                    jmp beginloop
+    76                                  
+    77                                  endloop:
+    78                                  
+    79                                  ; Restores all registers to their original state.
+    80                                                                 ; Remove extra push of -1 from stack.
+    81                                  
+    82 00000099 58                      pop rax
+    83 0000009A 4C89F0                  mov rax, r14                   ; Copies Largest number in array (r13) to rax.
+    84 0000009D 9D                      popf                                                 
+    85 0000009E 5B                      pop rbx                                                     
+    86 0000009F 415F                    pop r15                                                     
+    87 000000A1 415E                    pop r14                                                      
+    88 000000A3 415D                    pop r13                                                      
+    89 000000A5 415C                    pop r12                                                      
+    90 000000A7 415B                    pop r11                                                     
+    91 000000A9 415A                    pop r10                                                     
+    92 000000AB 4159                    pop r9                                                      
+    93 000000AD 4158                    pop r8                                                      
+    94 000000AF 59                      pop rcx                                                     
+    95 000000B0 5A                      pop rdx                                                     
+    96 000000B1 5E                      pop rsi                                                     
+    97 000000B2 5F                      pop rdi                                                     
+    98 000000B3 5D                      pop rbp
+    99                                  
+   100 000000B4 C3                      ret

@@ -1,0 +1,204 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Sum of Integers - Array                                            *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Description:   This program asks a user to input integers into an array and       *
+     5                                  ;                        returns the sum of integers in the array.                          *
+     6                                  ;                                                                                           *
+     7                                  ;********************************************************************************************
+     8                                  ; Author Information:                                                                       *
+     9                                  ; Name:         Bilal El-haghassan                                                          *
+    10                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *    
+    11                                  ; Institution:  California State University - Fullerton                                     *
+    12                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    13                                  ;                                                                                           *
+    14                                  ;********************************************************************************************
+    15                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    16                                  ; This program is free software: you can redistribute it and/or modify it under the terms   * 
+    17                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. * 
+    18                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    19                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. * 
+    20                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    21                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    22                                  ;                                                                                           *
+    23                                  ;********************************************************************************************
+    24                                  ; Program information                                                                       *
+    25                                  ;   Program name: Sum of Integers - Array                                                   *
+    26                                  ;   Programming languages: One module in C, Four modules in X86, Two modules in c++         *
+    27                                  ;   Files in this program: manager.asm, input_array.asm, sum.asm, atol.asm, main.c,         *   
+    28                                  ;   					   validate_decimal_digits.cpp, display_array.cpp                   *
+    29                                  ;                                                                                           *
+    30                                  ;********************************************************************************************
+    31                                  ; This File                                                                                 *
+    32                                  ;    Name:      manager.asm                                                                 *
+    33                                  ;    Purpose:   To manage all the files in the program and call to functions input_array,   *
+    34                                  ;               sum and display_array as needed.                                            *
+    35                                  ;                                                                                           *
+    36                                  ;********************************************************************************************
+    37                                  
+    38                                  extern printf
+    39                                  extern scanf
+    40                                  extern input_array
+    41                                  extern output_array
+    42                                  extern shift_left
+    43                                  
+    44                                  array_size equ 100                  ; Capacity limit for number of elements allowed in array.
+    45                                  
+    46                                  global control                     ; Makes function callable from other linked files.
+    47                                  
+    48                                  section .data
+    49                                  
+    50                                  section .bss
+    51 00000000 <res 00000320>              intArray: resq 100                  ; Uninitialized array with 100 reserved qwords.
+    52                                      
+    53                                  section .text
+    54 00000000 0A5468697320697320-         the_array db 10, "This is the Array: ", 0
+    54 00000009 746865204172726179-
+    54 00000012 3A2000             
+    55 00000015 0A0A41667465722073-         after_shift db 10, 10, "After shift left: ", 0
+    55 0000001E 68696674206C656674-
+    55 00000027 3A2000             
+    56 0000002A 257300                      stringFormat db "%s", 0
+    57                                  
+    58                                  control:
+    59                                  
+    60                                  ; Back up all registers and set stack pointer to base pointer
+    61 0000002D 55                      push rbp
+    62 0000002E 4889E5                  mov rbp, rsp
+    63 00000031 57                      push rdi
+    64 00000032 56                      push rsi
+    65 00000033 52                      push rdx
+    66 00000034 51                      push rcx
+    67 00000035 4150                    push r8
+    68 00000037 4151                    push r9
+    69 00000039 4152                    push r10
+    70 0000003B 4153                    push r11
+    71 0000003D 4154                    push r12
+    72 0000003F 4155                    push r13
+    73 00000041 4156                    push r14
+    74 00000043 4157                    push r15
+    75 00000045 53                      push rbx
+    76 00000046 9C                      pushf
+    77                                  
+    78 00000047 6AFF                    push qword -1                           ; Extra push to create even number of pushes
+    79                                  
+    80                                  ;-----------------------------INITIALIZE PARAMETERS-----------------------------------------
+    81 00000049 41BE00000000            mov qword r14, 0                        ; Reserve register for number of elements in array.
+    82 0000004F 41BD00000000            mov qword r13, 0                        ; Reserve register for largest number in array.
+    83                                  
+    84                                  ;---------------------------CALL FUNCTION INPUT_ARRAY---------------------------------------
+    85                                  
+    86 00000055 6A00                    push qword 0
+    87 00000057 48BF-                   mov qword rdi, intArray                 ; Passes array into rdi register.
+    87 00000059 [0000000000000000] 
+    88 00000061 B800000000              mov qword rax, 0
+    89 00000066 E8(00000000)            call input_array                        ; Calls funtion input_array.
+    90 0000006B 4989C6                  mov r14, rax                            ; Saves copy of input_array output into r14.
+    91 0000006E 4158                    pop r8
+    92                                  
+    93 00000070 B800000000              mov rax, 0
+    94 00000075 48BF-                   mov rdi, stringFormat
+    94 00000077 [2A00000000000000] 
+    95 0000007F 48BE-                   mov rsi, the_array
+    95 00000081 [0000000000000000] 
+    96 00000089 E8(00000000)            call printf
+    97                                  
+    98                                  ;----------------------------OUTPUT ARRAY--------------------------------------
+    99                                  
+   100 0000008E 48BF-                   mov qword rdi, intArray                 ; Passes the array as first parameter.
+   100 00000090 [0000000000000000] 
+   101 00000098 4C89F6                  mov qword rsi, r14                      ; Passes # of elements in the array stored in r14.
+   102 0000009B B800000000              mov qword rax, 0
+   103 000000A0 E8(00000000)            call output_array                       ; Calls output_array function.
+   104                                  
+   105                                  ;---------------------------CALL SHIFT-LEFT-------------------------------------------- 
+   106                                  
+   107 000000A5 48BF-                   mov qword rdi, intArray                 ; Passes the array
+   107 000000A7 [0000000000000000] 
+   108 000000AF 4C89F6                  mov qword rsi, r14                      ; Passes number of elements in array.       
+   109 000000B2 B800000000              mov qword rax, 0
+   110 000000B7 E8(00000000)            call shift_left                         ; Calls shift function to shift array left.
+   111                                  
+   112                                  
+   113 000000BC B800000000              mov rax, 0
+   114 000000C1 48BF-                   mov rdi, stringFormat
+   114 000000C3 [2A00000000000000] 
+   115 000000CB 48BE-                   mov rsi, after_shift
+   115 000000CD [1500000000000000] 
+   116 000000D5 E8(00000000)            call printf
+   117                                  
+   118                                  ;----------------------------OUTPUT ARRAY--------------------------------------
+   119                                  
+   120 000000DA 48BF-                   mov qword rdi, intArray                 ; Passes the array as first parameter.
+   120 000000DC [0000000000000000] 
+   121 000000E4 4C89F6                  mov qword rsi, r14                      ; Passes # of elements in the array stored in r14.
+   122 000000E7 B800000000              mov qword rax, 0
+   123 000000EC E8(00000000)            call output_array                       ; Calls output_array function.
+   124                                  
+   125                                  ;---------------------------CALL SHIFT-LEFT-------------------------------------------- 
+   126                                  
+   127 000000F1 48BF-                   mov qword rdi, intArray                 ; Passes the array
+   127 000000F3 [0000000000000000] 
+   128 000000FB 4C89F6                  mov qword rsi, r14                      ; Passes number of elements in array.       
+   129 000000FE B800000000              mov qword rax, 0
+   130 00000103 E8(00000000)            call shift_left                         ; Calls shift function to shift array left.
+   131                                  
+   132 00000108 B800000000              mov rax, 0
+   133 0000010D 48BF-                   mov rdi, stringFormat
+   133 0000010F [2A00000000000000] 
+   134 00000117 48BE-                   mov rsi, after_shift
+   134 00000119 [1500000000000000] 
+   135 00000121 E8(00000000)            call printf
+   136                                  
+   137                                  ;----------------------------OUTPUT ARRAY--------------------------------------
+   138                                  
+   139 00000126 48BF-                   mov qword rdi, intArray                 ; Passes the array as first parameter.
+   139 00000128 [0000000000000000] 
+   140 00000130 4C89F6                  mov qword rsi, r14                      ; Passes # of elements in the array stored in r14.
+   141 00000133 B800000000              mov qword rax, 0
+   142 00000138 E8(00000000)            call output_array                       ; Calls output_array function.
+   143                                  
+   144                                  ;---------------------------CALL SHIFT-LEFT-------------------------------------------- 
+   145                                  
+   146 0000013D 48BF-                   mov qword rdi, intArray                 ; Passes the array
+   146 0000013F [0000000000000000] 
+   147 00000147 4C89F6                  mov qword rsi, r14                      ; Passes number of elements in array.       
+   148 0000014A B800000000              mov qword rax, 0
+   149 0000014F E8(00000000)            call shift_left                         ; Calls shift function to shift array left.
+   150                                  
+   151 00000154 B800000000              mov rax, 0
+   152 00000159 48BF-                   mov rdi, stringFormat
+   152 0000015B [2A00000000000000] 
+   153 00000163 48BE-                   mov rsi, after_shift
+   153 00000165 [1500000000000000] 
+   154 0000016D E8(00000000)            call printf
+   155                                  
+   156                                  ;----------------------------OUTPUT ARRAY--------------------------------------
+   157                                  
+   158 00000172 48BF-                   mov qword rdi, intArray                 ; Passes the array as first parameter.
+   158 00000174 [0000000000000000] 
+   159 0000017C 4C89F6                  mov qword rsi, r14                      ; Passes # of elements in the array stored in r14.
+   160 0000017F B800000000              mov qword rax, 0
+   161 00000184 E8(00000000)            call output_array                       ; Calls output_array function.
+   162                                  
+   163                                  ;-----------------------------END OF FILE-----------------------------------------------
+   164                                  
+   165                                  ; Restores all registers to their original state.
+   166 00000189 58                      pop rax                                  ; Remove extra push of -1 from stack.
+   167 0000018A 488B0425[00000000]      mov qword rax, [intArray]                     ; Copies Largest number in array (r13) to rax.
+   168 00000192 9D                      popf                                                 
+   169 00000193 5B                      pop rbx                                                     
+   170 00000194 415F                    pop r15                                                     
+   171 00000196 415E                    pop r14                                                      
+   172 00000198 415D                    pop r13                                                      
+   173 0000019A 415C                    pop r12                                                      
+   174 0000019C 415B                    pop r11                                                     
+   175 0000019E 415A                    pop r10                                                     
+   176 000001A0 4159                    pop r9                                                      
+   177 000001A2 4158                    pop r8                                                      
+   178 000001A4 59                      pop rcx                                                     
+   179 000001A5 5A                      pop rdx                                                     
+   180 000001A6 5E                      pop rsi                                                     
+   181 000001A7 5F                      pop rdi                                                     
+   182 000001A8 5D                      pop rbp
+   183                                  
+   184 000001A9 C3                      ret

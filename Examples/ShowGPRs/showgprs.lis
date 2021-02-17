@@ -1,0 +1,914 @@
+     1                                  ;Author name: Floyd Holliday
+     2                                  ;Author email: holliday@fullerton.edu
+     3                                  
+     4                                  ;Program name: Show GPRs Utility
+     5                                  ;Programming languages: X86 for the utility itself.
+     6                                  ;Date program began: December 7, 2017
+     7                                  ;Date of last update: February 17, 2019
+     8                                  ;Files in this program: showgprs.asm, discover.asm, test-gprs.cpp, r.sh
+     9                                  ;Comment: This module is not a member of a specific application program.  This module is to be used as an aid to developers building 
+    10                                  ;application programs.  This program showgps should be removed before or when the application is ready to ship to the customer.
+    11                                  ;Prototype for use by application programmers wanting to call this utility function:  extern "C" void showgprs();
+    12                                  ;Status: Done.  No more work will be done on this program apart from fixing any reported errors.
+    13                                  
+    14                                  ;Purpose: Show how a programmer developing software in C, C++, or X86 can call a program to display the current values of all GPRs.
+    15                                  ;The displayed values for GPRs are the ones held at the time this function was called. 
+    16                                  
+    17                                  ;This file name: showgprs.asm
+    18                                  ;This file language: X86
+    19                                  ;This file syntax: Intex
+    20                                  ;Calling name: showgprs
+    21                                  ;Parameter passed in: one parameter, namely rdi, holding 64-bit label.
+    22                                  ;Parameter passed out: one 64-bit zero indicating successful completion.
+    23                                  ;Assemble: nasm -f elf64 -o gprs.o -l showgprs.lis showgprs.asm
+    24                                  
+    25                                  ;X86 rflags register:
+    26                                  ;Bit# Mnemonic Name
+    27                                  ;  0     CF    Carry flag
+    28                                  ;  1           unused
+    29                                  ;  2     PF    Parity flag
+    30                                  ;  3           unused
+    31                                  ;  4     AF    Auxiliary Carry flag
+    32                                  ;  5           unused
+    33                                  ;  6     ZF    Zero flag
+    34                                  ;  7     SF    Sign flag
+    35                                  ;  8     TF    Trap flag
+    36                                  ;  9     IF    Interrupt flag
+    37                                  ; 10     DF    Direction flag
+    38                                  ; 11     OF    Overflow flag
+    39                                  
+    40                                  ;===== Expected format of the output ======================================================================================================================================
+    41                                  ;Register Dump # 132
+    42                                  ;rax = 0000000000000003 rbx = 0000000000000000 rcx = 0000000000000001 rdx = 00007f59b444aab0
+    43                                  ;rsi = 0000000000000003 rdi = 0000000000602ad0 rbp = 00007fff7d9a6960 rsp = 00007fff7d9a6900
+    44                                  ;r8  = 00007f59b496e01b r9  = 0000000000000001 r10 = 0000000000000000 r11 = 0000000000000246
+    45                                  ;r12 = 0000000000000003 r13 = 00007fff7d9a6a40 r14 = 0000000000000019 r15 = 0000000000000000
+    46                                  ;rip = 00000000004008bf
+    47                                  ;rflags = 0000000000000246 of = 0 sf = 0 zf = 1 af = 0 pf = 1 cf = 0
+    48                                  
+    49                                  
+    50                                  ;===== Define constants ===================================================================================================================================================
+    51                                  ;Set constants via assembler directives
+    52                                  %define qwordsize 8                     ;8 bytes
+    53                                  %define cmask 00000001h                 ;Carry mask
+    54                                  %define pmask 00000004h                 ;Parity mask
+    55                                  %define amask 00000010h                 ;Auxiliary mask
+    56                                  %define zmask 00000040h                 ;Zero mask
+    57                                  %define smask 00000080h                 ;Sign mask
+    58                                  %define dmask 00000400h                 ;Not used
+    59                                  %define omask 00000800h                 ;Overflow mask
+    60                                  
+    61                                  extern printf                                               ;printf will be available to the linker in a binary format
+    62                                  
+    63                                  global showgprs                                             ;Make this subprogram callable from outside this file
+    64                                  
+    65                                  segment .data                                               ;This segment declares initialized data
+    66                                  
+    67 00000000 526567697374657220-     showgprs.oldregisterformat1 db "Register Dump # %ld", 10,
+    67 00000009 44756D70202320256C-
+    67 00000012 640A               
+    68 00000014 726178203D20253031-                                             db "rax = %016lx rbx = %016lx rcx = %016lx rdx = %016lx", 10,
+    68 0000001D 366C7820726278203D-
+    68 00000026 20253031366C782072-
+    68 0000002F 6378203D2025303136-
+    68 00000038 6C7820726478203D20-
+    68 00000041 253031366C780A     
+    69 00000048 727369203D20253031-                                             db "rsi = %016lx rdi = %016lx rbp = %016lx rsp = %016lx", 10, 0
+    69 00000051 366C7820726469203D-
+    69 0000005A 20253031366C782072-
+    69 00000063 6270203D2025303136-
+    69 0000006C 6C7820727370203D20-
+    69 00000075 253031366C780A00   
+    70                                  
+    71 0000007D 726178203D20253031-     showgprs.registerformat1 db "rax = %016lx rbx = %016lx rcx = %016lx rdx = %016lx", 10,
+    71 00000086 366C7820726278203D-
+    71 0000008F 20253031366C782072-
+    71 00000098 6378203D2025303136-
+    71 000000A1 6C7820726478203D20-
+    71 000000AA 253031366C780A     
+    72 000000B1 727369203D20253031-                                             db "rsi = %016lx rdi = %016lx rbp = %016lx rsp = %016lx", 10, 0
+    72 000000BA 366C7820726469203D-
+    72 000000C3 20253031366C782072-
+    72 000000CC 6270203D2025303136-
+    72 000000D5 6C7820727370203D20-
+    72 000000DE 253031366C780A00   
+    73                                  
+    74                                  
+    75 000000E6 723820203D20253031-     showgprs.registerformat2 db "r8  = %016lx r9  = %016lx r10 = %016lx r11 = %016lx", 10,
+    75 000000EF 366C7820723920203D-
+    75 000000F8 20253031366C782072-
+    75 00000101 3130203D2025303136-
+    75 0000010A 6C7820723131203D20-
+    75 00000113 253031366C780A     
+    76 0000011A 723132203D20253031-                                             db "r12 = %016lx r13 = %016lx r14 = %016lx r15 = %016lx", 10, 0
+    76 00000123 366C7820723133203D-
+    76 0000012C 20253031366C782072-
+    76 00000135 3134203D2025303136-
+    76 0000013E 6C7820723135203D20-
+    76 00000147 253031366C780A00   
+    77                                  
+    78 0000014F 726970203D20253031-     showgprs.registerformat3 db "rip = %016lx", 10, "rflags = %016lx ",
+    78 00000158 366C780A72666C6167-
+    78 00000161 73203D20253031366C-
+    78 0000016A 7820               
+    79 0000016C 6F66203D2025317820-                                             db "of = %1x sf = %1x zf = %1x af = %1x pf = %1x cf = %1x", 10, 0
+    79 00000175 7366203D2025317820-
+    79 0000017E 7A66203D2025317820-
+    79 00000187 6166203D2025317820-
+    79 00000190 7066203D2025317820-
+    79 00000199 6366203D202531780A-
+    79 000001A2 00                 
+    80                                  
+    81 000001A3 257300                  showgprs.stringformat db "%s", 0
+    82                                  
+    83 000001A6 546865207873617665-     showgprs.notsupportedmessage db "The xsave instruction is not supported in this microprocessor.", 10, 0
+    83 000001AF 20696E737472756374-
+    83 000001B8 696F6E206973206E6F-
+    83 000001C1 7420737570706F7274-
+    83 000001CA 656420696E20746869-
+    83 000001D3 73206D6963726F7072-
+    83 000001DC 6F636573736F722E0A-
+    83 000001E5 00                 
+    84                                  
+    85                                  segment .bss                                                ;Declare uninitialized arrays in this segment
+    86                                  
+    87                                  align 64                                                    ;The next data object must begin on a 64-byte boundary.
+    88 00000000 <res 00000340>          showgprs.backuparea resb 832                                ;Declare an array of sufficient size to hold all data from state components 0, 1, and 2.
+    89                                  
+    90                                  segment .text                                               ;Executable instruction are in this segment
+    91                                  
+    92                                  showgprs:                                                   ;Execution begins here
+    93                                  
+    94                                  ;=========== Back up all the GPRs whether used in this program or not =====================================================================================================
+    95                                  
+    96 00000000 55                      push       rbp                                              ;Save a copy of the stack base pointer
+    97 00000001 4889E5                  mov        rbp, rsp                                         ;We do this in order to be 100% compatible with C and C++.
+    98 00000004 50                      push       rax                                              ;This is a special case: typically rax is not backed up.
+    99 00000005 53                      push       rbx                                              ;Back up rbx
+   100 00000006 51                      push       rcx                                              ;Back up rcx
+   101 00000007 52                      push       rdx                                              ;Back up rdx
+   102 00000008 56                      push       rsi                                              ;Back up rsi
+   103 00000009 57                      push       rdi                                              ;Back up rdi
+   104 0000000A 4150                    push       r8                                               ;Back up r8
+   105 0000000C 4151                    push       r9                                               ;Back up r9
+   106 0000000E 4152                    push       r10                                              ;Back up r10
+   107 00000010 4153                    push       r11                                              ;Back up r11
+   108 00000012 4154                    push       r12                                              ;Back up r12
+   109 00000014 4155                    push       r13                                              ;Back up r13
+   110 00000016 4156                    push       r14                                              ;Back up r14
+   111 00000018 4157                    push       r15                                              ;Back up r15
+   112 0000001A 9C                      pushf                                                       ;Back up rflags
+   113                                  
+   114                                  ;==========================================================================================================================================================================
+   115                                  ;===== Begin State Component Backup =======================================================================================================================================
+   116                                  ;----- To: students.  You are welcome to remove all of these statements related to "State Component Backup" and "State Component Restore".  That state component stuff is
+   117                                  ;----- an old project where I was making back up copies of all registers (integer & floating point) without performing dozens of pushes and pops.  You will not effect the
+   118                                  ;----- run of your own program by removing "State Component".
+   119                                  ;==========================================================================================================================================================================
+   120                                  
+   121                                  ;=========== Before proceeding verify that this computer supports xsave and xrstor ========================================================================================
+   122                                  ;Bit #26 of rcx, written rcx[26], must be 1; otherwise xsave and xrstor are not supported by this computer.
+   123                                  ;Preconditions: rax holds 1.
+   124 0000001B B801000000              mov        rax, 1
+   125                                  
+   126                                  ;Execute the cpuid instruction
+   127 00000020 0FA2                    cpuid
+   128                                  
+   129                                  ;Postconditions: If rcx[26]==1 then xsave is supported.  If rcx[26]==0 then xsave is not supported.
+   130                                  
+   131                                  ;=========== Extract bit #26 and test it ==================================================================================================================================
+   132                                  
+   133 00000022 4881E100000004          and        rcx, 0x0000000004000000                          ;The mask 0x0000000004000000 has a 1 in position #26.  Now rcx is either all zeros or
+   134                                                                                              ;has a single 1 in position #26 and zeros everywhere else.
+   135 00000029 4883F900                cmp        rcx, 0                                           ;Is (rcx == 0)?
+   136 0000002D 742A                    je         .xsavenotsupported                               ;Skip the section that backs up state component data.
+   137                                  
+   138                                  ;========== Call the function to obtain the bitmap of state components ====================================================================================================
+   139                                  
+   140                                  ;Preconditions
+   141 0000002F B80D000000              mov        rax, 0x000000000000000d                          ;Place 13 in rax.  This number is provided in the Intel manual
+   142 00000034 B900000000              mov        rcx, 0                                           ;0 is parameter for subfunction 0
+   143                                  
+   144                                  ;Call the function
+   145 00000039 0FA2                    cpuid                                                       ;cpuid is an essential function that returns information about the cpu
+   146                                  
+   147                                  ;Postconditions (There are 2 of these):
+   148                                  
+   149                                  ;1.  edx:eax is a bit map of state components managed by xsave.  At the time this program was written (2014 June) there were exactly 3 state components.  Therefore, bits
+   150                                  ;    numbered 2, 1, and 0 are important for current cpu technology.
+   151                                  ;2.  ecx holds the number of bytes required to store all the data of enabled state components. [Post condition 2 is not used in this program.]
+   152                                  ;This program assumes that under current technology (year 2014) there are at most three state components having a maximum combined data storage requirement of 832 bytes.
+   153                                  ;Therefore, the value in ecx will be less than or equal to 832.
+   154                                  
+   155                                  ;Precaution: As an insurance against a future time when there will be more than 3 state components in a processor of the X86 family the state component bitmap is masked to
+   156                                  ;allow only 3 state components maximum.
+   157                                  
+   158 0000003B 41BF07000000            mov        r15, 7                                           ;7 equals three 1 bits.
+   159 00000041 4C21F8                  and        rax, r15                                         ;Bits 63-3 become zeros.
+   160 00000044 41BF00000000            mov        r15, 0                                           ;0 equals 64 binary zeros.
+   161 0000004A 4C21FA                  and        rdx, r15                                         ;Zero out rdx.
+   162                                  
+   163                                  ;========== Save all the data of all three components except GPRs =========================================================================================================
+   164                                  
+   165                                  ;The instruction xsave will save those state components with on bits in the bitmap.  At this point edx:eax continues to hold the state component bitmap.
+   166                                  
+   167                                  ;Precondition: edx:eax holds the state component bit map.  This condition has been met by the two pops preceding this statement.
+   168 0000004D 0FAE2425[00000000]      xsave      [.backuparea]                                    ;All the data of state components managed by xsave have been written to backuparea.
+   169                                  
+   170 00000055 6AFF                    push qword -1                                               ;Set a flag (-1 = true) to indicate that state component data were backed up.
+   171 00000057 EB20                    jmp        .startapplication                                ;Jump past the message stating "The xsav instruction is not supported"
+   172                                  
+   173                                  ;========== Show message xsave is not supported on this platform ==========================================================================================================
+   174                                  .xsavenotsupported:
+   175                                  
+   176 00000059 B800000000              mov        rax, 0                                           ;The zero value indicates that no floating values will be outputted by printf.
+   177 0000005E 48BF-                   mov        rdi, .stringformat                               ;"%s"
+   177 00000060 [A301000000000000] 
+   178 00000068 48BE-                   mov        rsi, .notsupportedmessage                        ;"The xsave instruction is not supported in this microprocessor.
+   178 0000006A [A601000000000000] 
+   179 00000072 E8(00000000)            call       printf
+   180                                  
+   181 00000077 6A00                    push qword 0                                                ;Set a flag (0 = false) to indicate that state component data were not backed up.
+   182                                  
+   183                                  ;==========================================================================================================================================================================
+   184                                  ;===== End of State Component Backup ======================================================================================================================================
+   185                                  ;==========================================================================================================================================================================
+   186                                  
+   187                                  ;==========================================================================================================================================================================
+   188                                  .startapplication: ;===== Begin the application here: Show the General Purpose Registers ==================================================================================
+   189                                  ;==========================================================================================================================================================================
+   190                                  
+   191                                  ;===== State of the integer stack at this time ============================================================================================================================
+   192                                  
+   193                                  ;              |---------------------------|
+   194                                  ;     rsp+18*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+18*8 = rsp+144
+   195                                  ;              |---------------------------|
+   196                                  ;     rsp+17*8 | return address            |
+   197                                  ;              |---------------------------|
+   198                                  ;     rsp+16*8 | rbp                       |
+   199                                  ;              |---------------------------|
+   200                                  ;     rsp+15*8 | rax                       |
+   201                                  ;              |---------------------------|
+   202                                  ;     rsp+14*8 | rbx                       |
+   203                                  ;              |---------------------------|
+   204                                  ;     rsp+13*8 | rcx                       |
+   205                                  ;              |---------------------------|
+   206                                  ;     rsp+12*8 | rdx                       |
+   207                                  ;              |---------------------------|
+   208                                  ;     rsp+11*8 | rsi                       |
+   209                                  ;              |---------------------------|
+   210                                  ;     rsp+10*8 | rdi                       |
+   211                                  ;              |---------------------------|
+   212                                  ;     rsp+9*8  | r8                        |
+   213                                  ;              |---------------------------|
+   214                                  ;     rsp+8*8  | r9                        |
+   215                                  ;              |---------------------------|
+   216                                  ;     rsp+7*8  | r10                       |
+   217                                  ;              |---------------------------|
+   218                                  ;     rsp+6*8  | r11                       |
+   219                                  ;              |---------------------------|
+   220                                  ;     rsp+5*8  | r12                       |
+   221                                  ;              |---------------------------|
+   222                                  ;     rsp+4*8  | r13                       |
+   223                                  ;              |---------------------------|
+   224                                  ;     rsp+3*8  | r14                       |
+   225                                  ;              |---------------------------|
+   226                                  ;     rsp+2*8  | r15                       |
+   227                                  ;              |---------------------------|
+   228                                  ;     rsp+1*8  | rflags                    |
+   229                                  ;              |---------------------------|
+   230                                  ;     rsp      | flag either -1 or 0       |
+   231                                  ;              |---------------------------|
+   232                                  ;
+   233 00000079 4889E0                  mov        rax, rsp                                         ;Copy top of stack to an available registers where it can be modified without damage to the true top of stack.
+   234 0000007C 480590000000            add        rax, 144                                         ;144=18*8.  rax holds address of top of stack at the instant before this program showregisters was called.
+   235 00000082 50                      push       rax                                              ;The top of stack holds the top of the stack address when showregisters was called.
+   236                                  
+   237                                  ;===== State of the integer stack at this time ============================================================================================================================
+   238                                  
+   239                                  ;              |---------------------------|
+   240                                  ;     rsp+19*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+18*8 = rsp+144
+   241                                  ;              |---------------------------|
+   242                                  ;     rsp+18*8 | return address            |
+   243                                  ;              |---------------------------|
+   244                                  ;     rsp+17*8 | rbp                       |
+   245                                  ;              |---------------------------|
+   246                                  ;     rsp+16*8 | rax                       |
+   247                                  ;              |---------------------------|
+   248                                  ;     rsp+15*8 | rbx                       |
+   249                                  ;              |---------------------------|
+   250                                  ;     rsp+14*8 | rcx                       |
+   251                                  ;              |---------------------------|
+   252                                  ;     rsp+13*8 | rdx                       |
+   253                                  ;              |---------------------------|
+   254                                  ;     rsp+12*8 | rsi                       |
+   255                                  ;              |---------------------------|
+   256                                  ;     rsp+11*8 | rdi                       |
+   257                                  ;              |---------------------------|
+   258                                  ;     rsp+10*8 | r8                        |
+   259                                  ;              |---------------------------|
+   260                                  ;     rsp+9*8  | r9                        |
+   261                                  ;              |---------------------------|
+   262                                  ;     rsp+8*8  | r10                       |
+   263                                  ;              |---------------------------|
+   264                                  ;     rsp+7*8  | r11                       |
+   265                                  ;              |---------------------------|
+   266                                  ;     rsp+6*8  | r12                       |
+   267                                  ;              |---------------------------|
+   268                                  ;     rsp+5*8  | r13                       |
+   269                                  ;              |---------------------------|
+   270                                  ;     rsp+4*8  | r14                       |
+   271                                  ;              |---------------------------|
+   272                                  ;     rsp+3*8  | r15                       |
+   273                                  ;              |---------------------------|
+   274                                  ;     rsp+2*8  | rflags                    |
+   275                                  ;              |---------------------------|
+   276                                  ;     rsp+1*8  | flag either -1 or 0       |
+   277                                  ;              |---------------------------|
+   278                                  ;     rsp      | original rsp              |                ;"original rsp" means the value in rsp when showregisters was called.
+   279                                  ;              |---------------------------|
+   280                                  
+   281 00000083 488B842488000000        mov        rax, [rsp+17*8]                                  ;Copy the original rbp to an available register.
+   282 0000008B 50                      push       rax                                              ;Push the original rbp onto the stack.
+   283                                  
+   284                                  ;===== State of the integer stack at this time ============================================================================================================================
+   285                                  
+   286                                  ;              |---------------------------|
+   287                                  ;     rsp+20*8 | unknown                   |
+   288                                  ;              |---------------------------|
+   289                                  ;     rsp+19*8 | return address            |
+   290                                  ;              |---------------------------|
+   291                                  ;     rsp+18*8 | rbp                       |
+   292                                  ;              |---------------------------|
+   293                                  ;     rsp+17*8 | rax                       |
+   294                                  ;              |---------------------------|
+   295                                  ;     rsp+16*8 | rbx                       |
+   296                                  ;              |---------------------------|
+   297                                  ;     rsp+15*8 | rcx                       |
+   298                                  ;              |---------------------------|
+   299                                  ;     rsp+14*8 | rdx                       |
+   300                                  ;              |---------------------------|
+   301                                  ;     rsp+13*8 | rsi                       |
+   302                                  ;              |---------------------------|
+   303                                  ;     rsp+12*8 | rdi                       |
+   304                                  ;              |---------------------------|
+   305                                  ;     rsp+11*8 | r8                        |
+   306                                  ;              |---------------------------|
+   307                                  ;     rsp+10*8 | r9                        |
+   308                                  ;              |---------------------------|
+   309                                  ;     rsp+9*8  | r10                       |
+   310                                  ;              |---------------------------|
+   311                                  ;     rsp+8*8  | r11                       |
+   312                                  ;              |---------------------------|
+   313                                  ;     rsp+7*8  | r12                       |
+   314                                  ;              |---------------------------|
+   315                                  ;     rsp+6*8  | r13                       |
+   316                                  ;              |---------------------------|
+   317                                  ;     rsp+5*8  | r14                       |
+   318                                  ;              |---------------------------|
+   319                                  ;     rsp+4*8  | r15                       |
+   320                                  ;              |---------------------------|
+   321                                  ;     rsp+3*8  | rflags                    |
+   322                                  ;              |---------------------------|
+   323                                  ;     rsp+2*8  | flag either -1 or 0       |
+   324                                  ;              |---------------------------|
+   325                                  ;     rsp+1*8  | original rsp              |                ;"original rsp" means the value in rsp when showregisters was called.
+   326                                  ;              |---------------------------|
+   327                                  ;     rsp      | original rbp              |                ;"original rbp" means the value in rbp when showregisters was called.
+   328                                  ;              |---------------------------|
+   329                                  
+   330 0000008C 488B442460              mov        rax, [rsp+12*8]                                  ;Copy the original rdi to an available register.
+   331 00000091 50                      push       rax                                              ;Push the original rdi onto the stack.
+   332                                  
+   333                                  ;===== State of the integer stack at this time ============================================================================================================================
+   334                                  
+   335                                  ;              |---------------------------|
+   336                                  ;     rsp+21*8 | unknown                   |
+   337                                  ;              |---------------------------|
+   338                                  ;     rsp+20*8 | return address            |
+   339                                  ;              |---------------------------|
+   340                                  ;     rsp+19*8 | rbp                       |
+   341                                  ;              |---------------------------|
+   342                                  ;     rsp+18*8 | rax                       |
+   343                                  ;              |---------------------------|
+   344                                  ;     rsp+17*8 | rbx                       |
+   345                                  ;              |---------------------------|
+   346                                  ;     rsp+16*8 | rcx                       |
+   347                                  ;              |---------------------------|
+   348                                  ;     rsp+15*8 | rdx                       |
+   349                                  ;              |---------------------------|
+   350                                  ;     rsp+14*8 | rsi                       |
+   351                                  ;              |---------------------------|
+   352                                  ;     rsp+13*8 | rdi                       |
+   353                                  ;              |---------------------------|
+   354                                  ;     rsp+12*8 | r8                        |
+   355                                  ;              |---------------------------|
+   356                                  ;     rsp+11*8 | r9                        |
+   357                                  ;              |---------------------------|
+   358                                  ;     rsp+10*8 | r10                       |
+   359                                  ;              |---------------------------|
+   360                                  ;     rsp+9*8  | r11                       |
+   361                                  ;              |---------------------------|
+   362                                  ;     rsp+8*8  | r12                       |
+   363                                  ;              |---------------------------|
+   364                                  ;     rsp+7*8  | r13                       |
+   365                                  ;              |---------------------------|
+   366                                  ;     rsp+6*8  | r14                       |
+   367                                  ;              |---------------------------|
+   368                                  ;     rsp+5*8  | r15                       |
+   369                                  ;              |---------------------------|
+   370                                  ;     rsp+4*8  | rflags                    |
+   371                                  ;              |---------------------------|
+   372                                  ;     rsp+3*8  | flag either -1 or 0       |
+   373                                  ;              |---------------------------|
+   374                                  ;     rsp+2*8  | original rsp              |                ;"original rsp" means the value in rsp when showregisters was called.
+   375                                  ;              |---------------------------|
+   376                                  ;     rsp+1*8  | original rbp              |                ;"original rbp" means the value in rbp when showregisters was called.
+   377                                  ;              |---------------------------|
+   378                                  ;     rsp      | original rdi              |                ;"original rdi" means the value in rdi when showregisters was called.
+   379                                  ;              |---------------------------|
+   380                                  
+   381                                  
+   382                                  
+   383 00000092 4C8B4C2470              mov        r9, [rsp+14*8]                                   ;Copy the original rsi to r9, which is the 6th CCC parameter
+   384 00000097 4C8B442478              mov        r8, [rsp+15*8]                                   ;Copy the original rdx to r8, which is the 5th CCC parameter
+   385 0000009C 488B8C2480000000        mov        rcx, [rsp+16*8]                                  ;Copy the original rcx to rcx, which is the 4th CCC parameter
+   386 000000A4 488B942488000000        mov        rdx, [rsp+17*8]                                  ;Copy the original rbx to rdx, which is the 3rd CCC parameter
+   387 000000AC 488BB42490000000        mov        rsi, [rsp+18*8]                                  ;Copy the original rax to rsi, which is the 2nd CCC parameter
+   388 000000B4 48BF-                   mov        rdi, .registerformat1
+   388 000000B6 [7D00000000000000] 
+   389 000000BE B800000000              mov        rax, 0                                           ;The value in rax signals to printf the number of floating point values to be outputted.
+   390                                  
+   391                                  
+   392 000000C3 E8(00000000)            call       printf                                           ;Output the first line of numbers.
+   393                                  
+   394                                  
+   395 000000C8 58                      pop        rax                                              ;Remove and discard original rsi from the stack
+   396 000000C9 58                      pop        rax                                              ;Remove and discard original rdi from the stack
+   397 000000CA 58                      pop        rax                                              ;Remove and discard original rbp from the stack
+   398                                  
+   399                                  ;===== State of the integer stack at this time ============================================================================================================================
+   400                                  
+   401                                  ;              |---------------------------|
+   402                                  ;     rsp+18*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+18*8 = rsp+144
+   403                                  ;              |---------------------------|
+   404                                  ;     rsp+17*8 | return address            |
+   405                                  ;              |---------------------------|
+   406                                  ;     rsp+16*8 | rbp                       |
+   407                                  ;              |---------------------------|
+   408                                  ;     rsp+15*8 | rax                       |
+   409                                  ;              |---------------------------|
+   410                                  ;     rsp+14*8 | rbx                       |
+   411                                  ;              |---------------------------|
+   412                                  ;     rsp+13*8 | rcx                       |
+   413                                  ;              |---------------------------|
+   414                                  ;     rsp+12*8 | rdx                       |
+   415                                  ;              |---------------------------|
+   416                                  ;     rsp+11*8 | rsi                       |
+   417                                  ;              |---------------------------|
+   418                                  ;     rsp+10*8 | rdi                       |
+   419                                  ;              |---------------------------|
+   420                                  ;     rsp+9*8  | r8                        |
+   421                                  ;              |---------------------------|
+   422                                  ;     rsp+8*8  | r9                        |
+   423                                  ;              |---------------------------|
+   424                                  ;     rsp+7*8  | r10                       |
+   425                                  ;              |---------------------------|
+   426                                  ;     rsp+6*8  | r11                       |
+   427                                  ;              |---------------------------|
+   428                                  ;     rsp+5*8  | r12                       |
+   429                                  ;              |---------------------------|
+   430                                  ;     rsp+4*8  | r13                       |
+   431                                  ;              |---------------------------|
+   432                                  ;     rsp+3*8  | r14                       |
+   433                                  ;              |---------------------------|
+   434                                  ;     rsp+2*8  | r15                       |
+   435                                  ;              |---------------------------|
+   436                                  ;     rsp+1*8  | rflags                    |
+   437                                  ;              |---------------------------|
+   438                                  ;     rsp      | flag either -1 or 0       |
+   439                                  ;              |---------------------------|
+   440                                  
+   441 000000CB 488B442410              mov        rax, [rsp+2*8]                                   ;Copy the original value of r15 to an available register.
+   442 000000D0 50                      push       rax                                              ;Push the original value of r15 onto the stack.
+   443                                  
+   444                                  ;===== State of the integer stack at this time ============================================================================================================================
+   445                                  
+   446                                  ;              |---------------------------|
+   447                                  ;     rsp+19*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+19*8 = rsp+152
+   448                                  ;              |---------------------------|
+   449                                  ;     rsp+18*8 | return address            |
+   450                                  ;              |---------------------------|
+   451                                  ;     rsp+17*8 | rbp                       |
+   452                                  ;              |---------------------------|
+   453                                  ;     rsp+16*8 | rax                       |
+   454                                  ;              |---------------------------|
+   455                                  ;     rsp+15*8 | rbx                       |
+   456                                  ;              |---------------------------|
+   457                                  ;     rsp+14*8 | rcx                       |
+   458                                  ;              |---------------------------|
+   459                                  ;     rsp+13*8 | rdx                       |
+   460                                  ;              |---------------------------|
+   461                                  ;     rsp+12*8 | rsi                       |
+   462                                  ;              |---------------------------|
+   463                                  ;     rsp+11*8 | rdi                       |
+   464                                  ;              |---------------------------|
+   465                                  ;     rsp+10*8 | r8                        |
+   466                                  ;              |---------------------------|
+   467                                  ;     rsp+9*8  | r9                        |
+   468                                  ;              |---------------------------|
+   469                                  ;     rsp+8*8  | r10                       |
+   470                                  ;              |---------------------------|
+   471                                  ;     rsp+7*8  | r11                       |
+   472                                  ;              |---------------------------|
+   473                                  ;     rsp+6*8  | r12                       |
+   474                                  ;              |---------------------------|
+   475                                  ;     rsp+5*8  | r13                       |
+   476                                  ;              |---------------------------|
+   477                                  ;     rsp+4*8  | r14                       |
+   478                                  ;              |---------------------------|
+   479                                  ;     rsp+3*8  | r15                       |
+   480                                  ;              |---------------------------|
+   481                                  ;     rsp+2*8  | rflags                    |
+   482                                  ;              |---------------------------|
+   483                                  ;     rsp+1*8  | flag either -1 or 0       |
+   484                                  ;              |---------------------------|
+   485                                  ;     rsp      | original r15              |
+   486                                  ;              |---------------------------|
+   487                                  
+   488 000000D1 488B442420              mov        rax, [rsp+4*8]                                   ;Copy the original value of r14 to an available register.
+   489 000000D6 50                      push       rax                                              ;Push the original value of r14 onto the stack.
+   490                                  
+   491                                  ;===== State of the integer stack at this time ============================================================================================================================
+   492                                  
+   493                                  ;              |---------------------------|
+   494                                  ;     rsp+20*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+20*8 = rsp+160
+   495                                  ;              |---------------------------|
+   496                                  ;     rsp+19*8 | return address            |
+   497                                  ;              |---------------------------|
+   498                                  ;     rsp+18*8 | rbp                       |
+   499                                  ;              |---------------------------|
+   500                                  ;     rsp+17*8 | rax                       |
+   501                                  ;              |---------------------------|
+   502                                  ;     rsp+16*8 | rbx                       |
+   503                                  ;              |---------------------------|
+   504                                  ;     rsp+15*8 | rcx                       |
+   505                                  ;              |---------------------------|
+   506                                  ;     rsp+14*8 | rdx                       |
+   507                                  ;              |---------------------------|
+   508                                  ;     rsp+13*8 | rsi                       |
+   509                                  ;              |---------------------------|
+   510                                  ;     rsp+12*8 | rdi                       |
+   511                                  ;              |---------------------------|
+   512                                  ;     rsp+11*8 | r8                        |
+   513                                  ;              |---------------------------|
+   514                                  ;     rsp+10*8 | r9                        |
+   515                                  ;              |---------------------------|
+   516                                  ;     rsp+9*8  | r10                       |
+   517                                  ;              |---------------------------|
+   518                                  ;     rsp+8*8  | r11                       |
+   519                                  ;              |---------------------------|
+   520                                  ;     rsp+7*8  | r12                       |
+   521                                  ;              |---------------------------|
+   522                                  ;     rsp+6*8  | r13                       |
+   523                                  ;              |---------------------------|
+   524                                  ;     rsp+5*8  | r14                       |
+   525                                  ;              |---------------------------|
+   526                                  ;     rsp+4*8  | r15                       |
+   527                                  ;              |---------------------------|
+   528                                  ;     rsp+3*8  | rflags                    |
+   529                                  ;              |---------------------------|
+   530                                  ;     rsp+2*8  | flag either -1 or 0       |
+   531                                  ;              |---------------------------|
+   532                                  ;     rsp+1*8  | original r15              |
+   533                                  ;              |---------------------------|
+   534                                  ;     rsp      | original r14              |
+   535                                  ;              |---------------------------|
+   536                                  
+   537 000000D7 488B442430              mov        rax, [rsp+6*8]
+   538 000000DC 50                      push       rax
+   539                                  
+   540                                  ;===== State of the integer stack at this time ============================================================================================================================
+   541                                  
+   542                                  ;              |---------------------------|
+   543                                  ;     rsp+21*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+21*8 = rsp+168 using current value of rsp
+   544                                  ;              |---------------------------|
+   545                                  ;     rsp+20*8 | return address            |
+   546                                  ;              |---------------------------|
+   547                                  ;     rsp+19*8 | rbp                       |
+   548                                  ;              |---------------------------|
+   549                                  ;     rsp+18*8 | rax                       |
+   550                                  ;              |---------------------------|
+   551                                  ;     rsp+17*8 | rbx                       |
+   552                                  ;              |---------------------------|
+   553                                  ;     rsp+16*8 | rcx                       |
+   554                                  ;              |---------------------------|
+   555                                  ;     rsp+15*8 | rdx                       |
+   556                                  ;              |---------------------------|
+   557                                  ;     rsp+14*8 | rsi                       |
+   558                                  ;              |---------------------------|
+   559                                  ;     rsp+13*8 | rdi                       |
+   560                                  ;              |---------------------------|
+   561                                  ;     rsp+12*8 | r8                        |
+   562                                  ;              |---------------------------|
+   563                                  ;     rsp+11*8 | r9                        |
+   564                                  ;              |---------------------------|
+   565                                  ;     rsp+10*8 | r10                       |
+   566                                  ;              |---------------------------|
+   567                                  ;     rsp+9*8  | r11                       |
+   568                                  ;              |---------------------------|
+   569                                  ;     rsp+8*8  | r12                       |
+   570                                  ;              |---------------------------|
+   571                                  ;     rsp+7*8  | r13                       |
+   572                                  ;              |---------------------------|
+   573                                  ;     rsp+6*8  | r14                       |
+   574                                  ;              |---------------------------|
+   575                                  ;     rsp+5*8  | r15                       |
+   576                                  ;              |---------------------------|
+   577                                  ;     rsp+4*8  | rflags                    |
+   578                                  ;              |---------------------------|
+   579                                  ;     rsp+3*8  | flag either -1 or 0       |
+   580                                  ;              |---------------------------|
+   581                                  ;     rsp+2*8  | original r15              |
+   582                                  ;              |---------------------------|
+   583                                  ;     rsp+1*8  | original r14              |
+   584                                  ;              |---------------------------|
+   585                                  ;     rsp      | original r13              |
+   586                                  ;              |---------------------------|
+   587                                  
+   588 000000DD 4C8B4C2440              mov        r9, [rsp+8*8]
+   589 000000E2 4C8B442448              mov        r8, [rsp+9*8]
+   590 000000E7 488B4C2450              mov        rcx, [rsp+10*8]
+   591 000000EC 488B542458              mov        rdx, [rsp+11*8]
+   592 000000F1 488B742460              mov        rsi, [rsp+12*8]
+   593 000000F6 48BF-                   mov        rdi, .registerformat2
+   593 000000F8 [E600000000000000] 
+   594 00000100 B800000000              mov        rax, 0
+   595 00000105 E8(00000000)            call       printf
+   596                                  
+   597 0000010A 58                      pop        rax                                              ;Remove and discard original r13 from the stack
+   598 0000010B 58                      pop        rax                                              ;Remove and discard original r14 from the stack
+   599 0000010C 58                      pop        rax                                              ;Remove and discard original r15 from the stack
+   600                                  
+   601                                  ;===== State of the integer stack at this time ============================================================================================================================
+   602                                  
+   603                                  ;              |---------------------------|
+   604                                  ;     rsp+18*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+18*8 = rsp+144 using current value of rsp
+   605                                  ;              |---------------------------|
+   606                                  ;     rsp+17*8 | return address            |
+   607                                  ;              |---------------------------|
+   608                                  ;     rsp+16*8 | rbp                       |
+   609                                  ;              |---------------------------|
+   610                                  ;     rsp+15*8 | rax                       |
+   611                                  ;              |---------------------------|
+   612                                  ;     rsp+14*8 | rbx                       |
+   613                                  ;              |---------------------------|
+   614                                  ;     rsp+13*8 | rcx                       |
+   615                                  ;              |---------------------------|
+   616                                  ;     rsp+12*8 | rdx                       |
+   617                                  ;              |---------------------------|
+   618                                  ;     rsp+11*8 | rsi                       |
+   619                                  ;              |---------------------------|
+   620                                  ;     rsp+10*8 | rdi                       |
+   621                                  ;              |---------------------------|
+   622                                  ;     rsp+9*8  | r8                        |
+   623                                  ;              |---------------------------|
+   624                                  ;     rsp+8*8  | r9                        |
+   625                                  ;              |---------------------------|
+   626                                  ;     rsp+7*8  | r10                       |
+   627                                  ;              |---------------------------|
+   628                                  ;     rsp+6*8  | r11                       |
+   629                                  ;              |---------------------------|
+   630                                  ;     rsp+5*8  | r12                       |
+   631                                  ;              |---------------------------|
+   632                                  ;     rsp+4*8  | r13                       |
+   633                                  ;              |---------------------------|
+   634                                  ;     rsp+3*8  | r14                       |
+   635                                  ;              |---------------------------|
+   636                                  ;     rsp+2*8  | r15                       |
+   637                                  ;              |---------------------------|
+   638                                  ;     rsp+1*8  | rflags                    |
+   639                                  ;              |---------------------------|
+   640                                  ;     rsp      | flag either -1 or 0       |
+   641                                  ;              |---------------------------|
+   642                                  
+   643                                  ;===== Output the sixth and seventh lines of the register dump ============================================================================================================
+   644                                  
+   645                                  ;At this time the original value of rflags is at rsp+8, which is second quadword from the top.
+   646                                  
+   647                                  ;Go into the stack and get a copy of that original rflags
+   648 0000010D 488B5C2408              mov qword rbx, [rsp+8]                                      ;Now rbx contain a copy of rflags.
+   649                                  
+   650                                  ;First part of CCC-64 parameter-passing protocol setup: do the pushes for the right most parameters
+   651                                  ;Begin process to extract the cf bit, which is bit #0 from the right.
+   652 00000112 4889D8                  mov rax, rbx                                                ;Place a copy of rflags into rax
+   653 00000115 4883E001                and rax, cmask                                              ;rax has all zero bits except possibly position 0.
+   654 00000119 50                      push qword rax                                              ;Count: push #1 of this section
+   655                                  
+   656                                  ;Begin process to extract the pf bit
+   657 0000011A 4889D8                  mov rax, rbx                                                ;Place a new copy of rflags into rax
+   658 0000011D 4883E004                and rax, pmask                                              ;rax has all zero bits except possible position 2
+   659 00000121 48C1E802                shr rax, 2                                                  ;The pf bit is bit #2 from the right.
+   660 00000125 50                      push qword rax                                              ;Count: push #2 of this section
+   661                                  
+   662                                  ;Begin process to extract the af bit
+   663 00000126 4889D8                  mov rax, rbx
+   664 00000129 4883E010                and rax, amask
+   665 0000012D 48C1E804                shr rax, 4                                                  ;The af bit is bit #4 from the right.
+   666 00000131 50                      push qword rax                                              ;Count: push #3 of this section
+   667                                  
+   668                                  ;===== State of the integer stack at this time ============================================================================================================================
+   669                                  
+   670                                  ;              |---------------------------|
+   671                                  ;     rsp+21*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+21*8 = rsp+168 using current value of rsp
+   672                                  ;              |---------------------------|
+   673                                  ;     rsp+20*8 | return address            |
+   674                                  ;              |---------------------------|
+   675                                  ;     rsp+19*8 | rbp                       |
+   676                                  ;              |---------------------------|
+   677                                  ;     rsp+18*8 | rax                       |
+   678                                  ;              |---------------------------|
+   679                                  ;     rsp+17*8 | rbx                       |
+   680                                  ;              |---------------------------|
+   681                                  ;     rsp+16*8 | rcx                       |
+   682                                  ;              |---------------------------|
+   683                                  ;     rsp+15*8 | rdx                       |
+   684                                  ;              |---------------------------|
+   685                                  ;     rsp+14*8 | rsi                       |
+   686                                  ;              |---------------------------|
+   687                                  ;     rsp+13*8 | rdi                       |
+   688                                  ;              |---------------------------|
+   689                                  ;     rsp+12*8 | r8                        |
+   690                                  ;              |---------------------------|
+   691                                  ;     rsp+11*8 | r9                        |
+   692                                  ;              |---------------------------|
+   693                                  ;     rsp+10*8 | r10                       |
+   694                                  ;              |---------------------------|
+   695                                  ;     rsp+9*8  | r11                       |
+   696                                  ;              |---------------------------|
+   697                                  ;     rsp+8*8  | r12                       |
+   698                                  ;              |---------------------------|
+   699                                  ;     rsp+7*8  | r13                       |
+   700                                  ;              |---------------------------|
+   701                                  ;     rsp+6*8  | r14                       |
+   702                                  ;              |---------------------------|
+   703                                  ;     rsp+5*8  | r15                       |
+   704                                  ;              |---------------------------|
+   705                                  ;     rsp+4*8  | rflags                    |
+   706                                  ;              |---------------------------|
+   707                                  ;     rsp+3*8  | flag either -1 or 0       |
+   708                                  ;              |---------------------------|
+   709                                  ;     rsp+2*8  | cf bit                    |
+   710                                  ;              |---------------------------|
+   711                                  ;     rsp+1*8  | pf bit                    |
+   712                                  ;              |---------------------------|
+   713                                  ;     rsp      | af bit                    |
+   714                                  ;              |---------------------------|
+   715                                  
+   716                                  ;Second part of CCC-64 parameter-passing protocol setup: move data into the five fixed registers acting as parameters
+   717                                  
+   718                                  ;Begin process to extract the zf bit: the zero bit
+   719 00000132 4889D8                  mov rax, rbx
+   720 00000135 4883E040                and rax, zmask
+   721 00000139 48C1E806                shr rax, 6
+   722 0000013D 4989C1                  mov qword r9, rax                                           ;Parameter #6 of CCC
+   723                                  
+   724                                  ;Begin process to extract the sf bit: the sign bit
+   725 00000140 4889D8                  mov rax, rbx
+   726 00000143 482580000000            and rax, smask
+   727 00000149 48C1E807                shr rax, 7
+   728 0000014D 4989C0                  mov qword r8, rax                                           ;Parameter #5 of CCC
+   729                                  
+   730                                  ;Begin process to extract the of bit: the overflow bit
+   731 00000150 4889D8                  mov rax, rbx
+   732 00000153 482500080000            and rax, omask
+   733 00000159 48C1E80B                shr rax, 11
+   734 0000015D 4889C1                  mov qword rcx, rax                                          ;Parameter #4 of CCC
+   735                                  
+   736                                  ;Copy the original rflags data to rdx
+   737 00000160 4889DA                  mov qword rdx, rbx                                          ;Parameter #3 of CCC
+   738                                  ;
+   739                                  ;rip is a highly protected register in the sense that it is the only one providing neither read nor write privileges.  Therefore, the programmer cannot assign a value to
+   740                                  ;rip nor read the value in rip.  The one technique to obtain the value stored in rip is to call a subprogram such as this one, showregisterssubprogram.  The call will
+   741                                  ;place a copy of rip on the integer stack.  That value can be retrieved later from the integer stack, and that is what is done here.  That value is the address of the
+   742                                  ;next instruction to execute when the current subprogram returns.
+   743                                  
+   744                                  ;Copy the rip at the time this subprogram was called; the copy goes into rsi, which is parameter #2 of CCC
+   745 00000163 488BB424A0000000        mov qword rsi, [rsp+20*qwordsize]                           ;We use the return address as the value of rip at the time instantly before showregisters is called.
+   746                                  
+   747 0000016B 48BF-                   mov qword rdi, .registerformat3                             ;Parameter #1 of CCC
+   747 0000016D [4F01000000000000] 
+   748                                  
+   749                                  ;Third part of the CCC-64 protocol
+   750 00000175 B800000000              mov qword rax, 0
+   751 0000017A E8(00000000)            call printf
+   752                                  
+   753                                  ;Reverse the three recent pushes.
+   754 0000017F 58                      pop rax                                                     ;Discard the qword containing the af bit
+   755 00000180 58                      pop rax                                                     ;Discard the qword containing the pf bit
+   756 00000181 58                      pop rax                                                     ;Discard the qword containing the cf bit
+   757                                  
+   758                                  ;===== State of the integer stack at this time ============================================================================================================================
+   759                                  
+   760                                  ;              |---------------------------|
+   761                                  ;     rsp+17*8 | unknown                   | <== top of stack at the instant before calling showregisters, which is rsp+17*8 = rsp+136 using current value of rsp
+   762                                  ;              |---------------------------|
+   763                                  ;     rsp+16*8 | rbp                       |
+   764                                  ;              |---------------------------|
+   765                                  ;     rsp+15*8 | rax                       |
+   766                                  ;              |---------------------------|
+   767                                  ;     rsp+14*8 | rbx                       |
+   768                                  ;              |---------------------------|
+   769                                  ;     rsp+13*8 | rcx                       |
+   770                                  ;              |---------------------------|
+   771                                  ;     rsp+12*8 | rdx                       |
+   772                                  ;              |---------------------------|
+   773                                  ;     rsp+11*8 | rsi                       |
+   774                                  ;              |---------------------------|
+   775                                  ;     rsp+10*8 | rdi                       |
+   776                                  ;              |---------------------------|
+   777                                  ;     rsp+9*8  | r8                        |
+   778                                  ;              |---------------------------|
+   779                                  ;     rsp+8*8  | r9                        |
+   780                                  ;              |---------------------------|
+   781                                  ;     rsp+7*8  | r10                       |
+   782                                  ;              |---------------------------|
+   783                                  ;     rsp+6*8  | r11                       |
+   784                                  ;              |---------------------------|
+   785                                  ;     rsp+5*8  | r12                       |
+   786                                  ;              |---------------------------|
+   787                                  ;     rsp+4*8  | r13                       |
+   788                                  ;              |---------------------------|
+   789                                  ;     rsp+3*8  | r14                       |
+   790                                  ;              |---------------------------|
+   791                                  ;     rsp+2*8  | r15                       |
+   792                                  ;              |---------------------------|
+   793                                  ;     rsp+1*8  | rflags                    |
+   794                                  ;              |---------------------------|
+   795                                  ;     rsp      | flag either -1 or 0       |
+   796                                  ;              |---------------------------|
+   797                                  
+   798                                  ;==========================================================================================================================================================================
+   799                                  ;===== Begin State Component Restore ======================================================================================================================================
+   800                                  ;==========================================================================================================================================================================
+   801                                  
+   802                                  ;===== Check the flag to determine if state components were really backed up ==============================================================================================
+   803                                  
+   804 00000182 5B                      pop        rbx                                              ;Obtain a copy of the flag that indicates state component backup or not.
+   805                                  
+   806 00000183 4883FB00                cmp        rbx, 0                                           ;If there was no backup of state components then jump past the restore section.
+   807 00000187 7426                    je         setreturnvalue                                   ;Go to set up the return value.
+   808                                  
+   809                                  ;Continue with restoration of state components;
+   810                                  
+   811                                  ;Precondition: edx:eax must hold the state component bitmap.  Therefore, go get a new copy of that bitmap.
+   812                                  
+   813                                  ;Preconditions for obtaining the bitmap from the cpuid instruction
+   814 00000189 B80D000000              mov        rax, 0x000000000000000d                          ;Place 13 in rax.  This number is provided in the Intel manual
+   815 0000018E B900000000              mov        rcx, 0                                           ;0 is parameter for subfunction 0
+   816                                  
+   817                                  ;Call the function
+   818 00000193 0FA2                    cpuid                                                       ;cpuid is an essential function that returns information about the cpu
+   819                                  
+   820                                  ;Postcondition: The bitmap in now in edx:eax
+   821                                  
+   822                                  ;Future insurance: Make sure the bitmap is limited to a maximum of 3 state components.
+   823 00000195 41BF07000000            mov        r15, 7
+   824 0000019B 4C21F8                  and        rax, r15
+   825 0000019E 41BF00000000            mov        r15, 0
+   826 000001A4 4C21FA                  and        rdx, r15
+   827                                  
+   828 000001A7 0FAE2C25[00000000]      xrstor     [.backuparea]
+   829                                  
+   830                                  ;==========================================================================================================================================================================
+   831                                  ;===== End State Component Restore ========================================================================================================================================
+   832                                  ;==========================================================================================================================================================================
+   833                                  
+   834                                  
+   835                                  setreturnvalue: ;=========== Set the value to be returned to the caller ===================================================================================================
+   836                                  
+   837 000001AF B800000000              mov        rax, 0                                           ;Send 0 back to the caller indicating a successful termination
+   838                                  
+   839                                  ;=========== Restore GPR values and return to the caller ==================================================================================================================
+   840                                  
+   841 000001B4 9D                      popf                                                        ;Restore rflags
+   842 000001B5 415F                    pop        r15                                              ;Restore r15
+   843 000001B7 415E                    pop        r14                                              ;Restore r14
+   844 000001B9 415D                    pop        r13                                              ;Restore r13
+   845 000001BB 415C                    pop        r12                                              ;Restore r12
+   846 000001BD 415B                    pop        r11                                              ;Restore r11
+   847 000001BF 415A                    pop        r10                                              ;Restore r10
+   848 000001C1 4159                    pop        r9                                               ;Restore r9
+   849 000001C3 4158                    pop        r8                                               ;Restore r8
+   850 000001C5 5F                      pop        rdi                                              ;Restore rdi
+   851 000001C6 5E                      pop        rsi                                              ;Restore rsi
+   852 000001C7 5A                      pop        rdx                                              ;Restore rdx
+   853 000001C8 59                      pop        rcx                                              ;Restore rcx
+   854 000001C9 5B                      pop        rbx                                              ;Restore rbx
+   855 000001CA 4883C408                add        rsp, 8                                           ;Remove the old value of rax from the stack and discard that value.  This counts as one pop.
+   856 000001CE 5D                      pop        rbp                                              ;Restore rbp
+   857                                  
+   858 000001CF C3                      ret                                                         ;Pop the integer stack and resume execution at the address that was popped from the stack.
+   859                                  
+   860                                  ;===== End of program showregisters ========================================================================================================================================
+   861                                  

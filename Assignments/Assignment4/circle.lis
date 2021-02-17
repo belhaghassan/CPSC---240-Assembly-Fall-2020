@@ -1,0 +1,190 @@
+     1                                  ;********************************************************************************************
+     2                                  ; Program name:          Circumference of a Circle	                                        *
+     3                                  ; Programming Language:  x86 Assembly                                                       *
+     4                                  ; Program Created:		 November 1, 2020													*
+     5                                  ; Program Completed:	 November 2, 2020													*
+     6                                  ; Last Modified:		 November 7, 2020													*
+     7                                  ; Program Description:   This program asks a user to input a radius as a floating-point     *
+     8                                  ;                        number and returns the circumference of a circle with that radius  *
+     9                                  ;                                                                                           *
+    10                                  ;********************************************************************************************
+    11                                  ; Author Information:                                                                       *
+    12                                  ; Name:         Bilal El-haghassan                                                          *
+    13                                  ; Email:        bilalelhaghassan@csu.fullerton.edu                                          *    
+    14                                  ; Institution:  California State University - Fullerton                                     *
+    15                                  ; Course:       CPSC 240-05 Assembly Language                                               *
+    16                                  ;                                                                                           *
+    17                                  ;********************************************************************************************
+    18                                  ; Copyright (C) 2020 Bilal El-haghassan                                                     *
+    19                                  ; This program is free software: you can redistribute it and/or modify it under the terms   * 
+    20                                  ; of the GNU General Public License version 3 as published by the Free Software Foundation. * 
+    21                                  ; This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY  *
+    22                                  ; without even the implied Warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. * 
+    23                                  ; See the GNU General Public License for more details. A copy of the GNU General Public     *
+    24                                  ; License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    25                                  ;                                                                                           *
+    26                                  ;********************************************************************************************
+    27                                  ; Program Information                                                                       *
+    28                                  ; Program name:   Circumference of a Circle			                           				*
+    29                                  ; Languages used: One module in C, One module in x86                         				*
+    30                                  ; Files included: circle.asm, circumference.c                                               *
+    31                                  ;                                                                                           *
+    32                                  ;********************************************************************************************
+    33                                  ; This File                                                                                 *
+    34                                  ;    Name:      circle.asm                                                           		*
+    35                                  ;    Purpose:   To take a users input of a floating point number and returning the          *
+    36                                  ;               calculated circumference to the driver (circumference.c)                    *
+    37                                  ;	 Language:	x86-64																		*
+    38                                  ;	 Assemble:	nasm -f elf64 -l circle.lis -o circle.o circle.asm			                *
+    39                                  ;	 Link:		gcc -m64 -no-pie -o a.out -std=c11 circumference.o circle.o                 *
+    40                                  ;																							*
+    41                                  ;********************************************************************************************
+    42                                  
+    43                                  ;Declare the names of functions called in this file whose source code is not in this file.
+    44                                  extern printf
+    45                                  extern scanf
+    46                                  
+    47                                  global circle                       ; Make function callable by other linked files.
+    48                                  
+    49                                  section .data
+    50                                  
+    51 00000000 546869732063697263-         intro db "This circle function is brought to you by Bilal El-haghassan.", 10
+    51 00000009 6C652066756E637469-
+    51 00000012 6F6E2069732062726F-
+    51 0000001B 7567687420746F2079-
+    51 00000024 6F752062792042696C-
+    51 0000002D 616C20456C2D686167-
+    51 00000036 68617373616E2E0A   
+    52 0000003E 506C6561736520656E-               db "Please enter the radius of a circle as a floating point number: ", 0
+    52 00000047 746572207468652072-
+    52 00000050 6164697573206F6620-
+    52 00000059 6120636972636C6520-
+    52 00000062 6173206120666C6F61-
+    52 0000006B 74696E6720706F696E-
+    52 00000074 74206E756D6265723A-
+    52 0000007D 2000               
+    53 0000007F 546865206E756D6265-         receivedNum db "The number %.10lf was received.", 10, 0
+    53 00000088 7220252E31306C6620-
+    53 00000091 776173207265636569-
+    53 0000009A 7665642E0A00       
+    54 000000A0 546865206369726375-         circum db "The circumference of a circle with this radius is %.15lf meters.", 10
+    54 000000A9 6D666572656E636520-
+    54 000000B2 6F6620612063697263-
+    54 000000BB 6C6520776974682074-
+    54 000000C4 686973207261646975-
+    54 000000CD 7320697320252E3135-
+    54 000000D6 6C66206D6574657273-
+    54 000000DF 2E0A               
+    55 000000E1 546865206369726375-                db "The circumference will be returned to the main program. Please enjoy your circles.", 10, 0
+    55 000000EA 6D666572656E636520-
+    55 000000F3 77696C6C2062652072-
+    55 000000FC 657475726E65642074-
+    55 00000105 6F20746865206D6169-
+    55 0000010E 6E2070726F6772616D-
+    55 00000117 2E20506C6561736520-
+    55 00000120 656E6A6F7920796F75-
+    55 00000129 7220636972636C6573-
+    55 00000132 2E0A00             
+    56 00000135 257300                      stringFormat db "%s", 0 
+    57 00000138 256C6600                    floatFormat db "%lf", 0 
+    58                                  
+    59                                  section .bss
+    60                                  
+    61                                  section .text
+    62                                  
+    63                                  circle:
+    64                                  ; Back up all registers and set stack pointer to base pointer
+    65 00000000 55                          push rbp
+    66 00000001 4889E5                      mov rbp, rsp
+    67 00000004 57                          push rdi
+    68 00000005 56                          push rsi
+    69 00000006 52                          push rdx
+    70 00000007 51                          push rcx
+    71 00000008 4150                        push r8
+    72 0000000A 4151                        push r9
+    73 0000000C 4152                        push r10
+    74 0000000E 4153                        push r11
+    75 00000010 4154                        push r12
+    76 00000012 4155                        push r13
+    77 00000014 4156                        push r14
+    78 00000016 4157                        push r15
+    79 00000018 53                          push rbx
+    80 00000019 9C                          pushf
+    81                                  
+    82 0000001A 6AFF                        push qword -1              ; Extra push to create even number of pushes
+    83                                  
+    84                                  ;-------------------------------CIRCLE FUNCTION BEGINS--------------------------------------
+    85 0000001C 48BF-                       mov rdi, stringFormat
+    85 0000001E [3501000000000000] 
+    86 00000026 48BE-                       mov rsi, intro             
+    86 00000028 [0000000000000000] 
+    87 00000030 B800000000                  mov rax, 0
+    88 00000035 E8(00000000)                call printf                ; Prints out intro message.
+    89                                  
+    90                                  ;---------------------------------ASK USER FOR INPUT----------------------------------------
+    91 0000003A 50                          push rax                   ; Add 8 bytes onto stack for incoming value of scanf.
+    92 0000003B 48BF-                       mov rdi, floatFormat
+    92 0000003D [3801000000000000] 
+    93 00000045 4889E6                      mov rsi, rsp               ; Points rsi to top of stack to place input value of scanf.
+    94 00000048 B800000000                  mov rax, 0                 
+    95 0000004D E8(00000000)                call scanf
+    96                                      
+    97 00000052 F2440F101424                movsd xmm10, [rsp]         ; Copy user input into preserved xmm10 register.
+    98                                      
+    99                                  ;--------------------------PRINT CONFIRMATION OF RADIUS INPUT-------------------------------
+   100 00000058 F2410F10C2                  movsd xmm0, xmm10          ; Copy user input to xmm0 reg to be used in printf function.
+   101 0000005D 48BF-                       mov rdi, receivedNum       
+   101 0000005F [7F00000000000000] 
+   102 00000067 B801000000                  mov rax, 1                 ; Set rax to 1 to let printf know its printing xmm0.
+   103 0000006C E8(00000000)                call printf
+   104                                  
+   105                                  ;----------------------COPY 2.0 INTO XMM12 REGISTER FOR MULIPLICATION-----------------------
+   106 00000071 48B800000000000000-         mov rax, 0x4000000000000000     ; Copy hex value of 2.0 into rax.
+   106 0000007A 40                 
+   107 0000007B 50                          push rax                        ; Push 2.0 onto stack.
+   108 0000007C F2440F102424                movsd xmm12, [rsp]              ; Copy 2.0 from top of stack to preserved xmm12 reg.
+   109 00000082 58                          pop rax                         ; Return stack to 16 byte alignment.
+   110                                  
+   111                                  ;-------------------COPY VALUE OF PI INTO XMM12 REGISTER FOR MULIPLICATION------------------
+   112 00000083 48B8182D4454FB2109-         mov rax, 0x400921FB54442D18     ; Copy hex value of Pi into rax.
+   112 0000008C 40                 
+   113 0000008D 50                          push rax                        ; Push value of Pi onto stack.
+   114 0000008E F2440F102C24                movsd xmm13, [rsp]              ; Copy Pi from top of stack into preserved xmm13 reg.
+   115 00000094 58                          pop rax                         ; Return stack to 16 byte alignment.
+   116                                  
+   117                                  ;-----------------------------MULTIPLY INPUT BY 2.0 AND PI----------------------------------
+   118 00000095 F2450F59D4                  mulsd xmm10, xmm12              ; Multiply radius in xmm10 by 2.0 value in xmm12.
+   119 0000009A F2450F59D5                  mulsd xmm10, xmm13              ; Multiply 2 x radius by the value Pi in xmm13.
+   120                                  
+   121                                  ;-------------------------------PRINT OUT CIRCUMFERENCE-------------------------------------
+   122 0000009F F2410F10C2                  movsd xmm0, xmm10               ; Copy value of calulated circumference into xmm0.
+   123 000000A4 48BF-                       mov rdi, circum                 ; Pass format of float to printf.
+   123 000000A6 [A000000000000000] 
+   124 000000AE B801000000                  mov rax, 1                      ; Set rax to 1 to let printf know its printing xmm0.
+   125 000000B3 E8(00000000)                call printf
+   126                                  
+   127                                  ;-------------------------------END OF CIRCLE FUNCTION--------------------------------------
+   128 000000B8 F2410F10C2                  movsd xmm0, xmm10               ; Copy circumference from xmm10 to xmm0 to be returned.
+   129                                     
+   130 000000BD 58                          pop rax                         ; Extra pop to align stack to 16 bytes.
+   131 000000BE 58                          pop rax                         ; Remove extra push of -1 from stack.
+   132                                  
+   133                                      ; Restores all registers to their original state.
+   134 000000BF 9D                          popf                                                 
+   135 000000C0 5B                          pop rbx                                                     
+   136 000000C1 415F                        pop r15                                                     
+   137 000000C3 415E                        pop r14                                                      
+   138 000000C5 415D                        pop r13                                                      
+   139 000000C7 415C                        pop r12                                                      
+   140 000000C9 415B                        pop r11                                                     
+   141 000000CB 415A                        pop r10                                                     
+   142 000000CD 4159                        pop r9                                                      
+   143 000000CF 4158                        pop r8                                                      
+   144 000000D1 59                          pop rcx                                                     
+   145 000000D2 5A                          pop rdx                                                     
+   146 000000D3 5E                          pop rsi                                                     
+   147 000000D4 5F                          pop rdi                                                     
+   148 000000D5 5D                          pop rbp
+   149                                  
+   150 000000D6 C3                          ret
+   151                                  

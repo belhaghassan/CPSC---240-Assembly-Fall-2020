@@ -1,0 +1,320 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;Program name: "Floating IO".  This program demonstrates the input of multiple float numbers from the standard input device *
+     3                                  ;using a single instruction and the output of multiple float numbers to the standard output device also using a single      *
+     4                                  ;instruction.  Copyright (C) 2019 Floyd Holliday.                                                                           *
+     5                                  ;                                                                                                                           *
+     6                                  ;This file is part of the software program "Floating IO".                                                                   *
+     7                                  ;Floating IO is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License   *
+     8                                  ;version 3 as published by the Free Software Foundation.                                                                    *
+     9                                  ;Floating IO is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied          *
+    10                                  ;warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+    11                                  ;A copy of the GNU General Public License v3 is available here:  <https:;www.gnu.org/licenses/>.                            *
+    12                                  ;****************************************************************************************************************************
+    13                                  
+    14                                  
+    15                                  
+    16                                  
+    17                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    18                                  ;
+    19                                  ;Author information
+    20                                  ;  Author name: Floyd Holliday
+    21                                  ;  Author email: holliday@fullerton.edu
+    22                                  ;
+    23                                  ;Program information
+    24                                  ;  Program name: Floating IO
+    25                                  ;  Programming languages: One modules in C and one module in X86
+    26                                  ;  Date program began: 2019-Oct-25
+    27                                  ;  Date of last update: 2019-Oct-26
+    28                                  ;  Date of reorganization of comments: 2019-Oct-29
+    29                                  ;  Files in this program: manage-floats.c, float-input-output.asm
+    30                                  ;  Status: Finished.  The program was tested extensively with no errors in Xubuntu19.04.
+    31                                  ;
+    32                                  ;This file
+    33                                  ;   File name: float-input-output.asm
+    34                                  ;   Language: X86 with Intel syntax.
+    35                                  ;   Max page width: 132 columns
+    36                                  ;   Assemble: nasm -f elf64 -l float-input-output.lis -o float-input-output.o float-input-output.asm
+    37                                  
+    38                                  
+    39                                  ;===== Begin code area ================================================================================================
+    40                                  extern printf
+    41                                  extern scanf
+    42                                  global floatio
+    43                                  
+    44                                  segment .data
+    45 00000000 54686520417373656D-     welcome db "The Assembly function floatio has begun execution",10,0
+    45 00000009 626C792066756E6374-
+    45 00000012 696F6E20666C6F6174-
+    45 0000001B 696F20686173206265-
+    45 00000024 67756E206578656375-
+    45 0000002D 74696F6E0A00       
+    46 00000033 506C6561736520696E-     input1prompt db "Please input 1 floating point number and press enter with no ws.  Do not press cntl+d: ",0
+    46 0000003C 707574203120666C6F-
+    46 00000045 6174696E6720706F69-
+    46 0000004E 6E74206E756D626572-
+    46 00000057 20616E642070726573-
+    46 00000060 7320656E7465722077-
+    46 00000069 697468206E6F207773-
+    46 00000072 2E2020446F206E6F74-
+    46 0000007B 20707265737320636E-
+    46 00000084 746C2B643A2000     
+    47 0000008B 506C6561736520696E-     input2prompt db "Please input 2 floating point numbers separated by ws and press enter.  Do not press cntl+d: ",0
+    47 00000094 707574203220666C6F-
+    47 0000009D 6174696E6720706F69-
+    47 000000A6 6E74206E756D626572-
+    47 000000AF 732073657061726174-
+    47 000000B8 656420627920777320-
+    47 000000C1 616E64207072657373-
+    47 000000CA 20656E7465722E2020-
+    47 000000D3 446F206E6F74207072-
+    47 000000DC 65737320636E746C2B-
+    47 000000E5 643A2000           
+    48 000000E9 506C6561736520696E-     input3prompt db "Please input 3tax floating point numbers separated by ws and press enter.  Do not press cntl+d: ",0
+    48 000000F2 707574203374617820-
+    48 000000FB 666C6F6174696E6720-
+    48 00000104 706F696E74206E756D-
+    48 0000010D 626572732073657061-
+    48 00000116 726174656420627920-
+    48 0000011F 777320616E64207072-
+    48 00000128 65737320656E746572-
+    48 00000131 2E2020446F206E6F74-
+    48 0000013A 20707265737320636E-
+    48 00000143 746C2B643A2000     
+    49 0000014A 54686520666C6F6174-     good_bye db "The floating module will return the large number to the caller.  Have a nice afternoon",10,0
+    49 00000153 696E67206D6F64756C-
+    49 0000015C 652077696C6C207265-
+    49 00000165 7475726E2074686520-
+    49 0000016E 6C61726765206E756D-
+    49 00000177 62657220746F207468-
+    49 00000180 652063616C6C65722E-
+    49 00000189 202048617665206120-
+    49 00000192 6E6963652061667465-
+    49 0000019B 726E6F6F6E0A00     
+    50 000001A2 256C6600                one_float_format db "%lf",0
+    51 000001A6 256C6620256C6600        two_float_format db "%lf %lf",0
+    52 000001AE 256C66256C66256C66-     three_float_format db "%lf%lf%lf",0
+    52 000001B7 00                 
+    53 000001B8 546865206F6E65206E-     output_one_float db "The one number is %5.3lf",10,0
+    53 000001C1 756D62657220697320-
+    53 000001CA 25352E336C660A00   
+    54 000001D2 5468652074776F206E-     output_two_float db "The two numbers are %5.3lf and %5.3lf.",10,0
+    54 000001DB 756D62657273206172-
+    54 000001E4 652025352E336C6620-
+    54 000001ED 616E642025352E336C-
+    54 000001F6 662E0A00           
+    55 000001FA 546865207468726565-     output_three_float db "The three numbers in ascending order are %7.5lf, %7.5lf, and %7.5lf",10,0
+    55 00000203 206E756D6265727320-
+    55 0000020C 696E20617363656E64-
+    55 00000215 696E67206F72646572-
+    55 0000021E 206172652025372E35-
+    55 00000227 6C662C2025372E356C-
+    55 00000230 662C20616E64202537-
+    55 00000239 2E356C660A00       
+    56                                  
+    57                                  segment .bss  ;Reserved for uninitialized data
+    58                                  
+    59                                  segment .text ;Reserved for executing instructions.
+    60                                  
+    61                                  floatio:
+    62                                  
+    63                                  ;Prolog ===== Insurance for any caller of this assembly module ========================================================
+    64                                  ;Any future program calling this module that the data in the caller's GPRs will not be modified.
+    65 00000000 55                      push rbp
+    66 00000001 4889E5                  mov  rbp,rsp
+    67 00000004 57                      push rdi                                                    ;Backup rdi
+    68 00000005 56                      push rsi                                                    ;Backup rsi
+    69 00000006 52                      push rdx                                                    ;Backup rdx
+    70 00000007 51                      push rcx                                                    ;Backup rcx
+    71 00000008 4150                    push r8                                                     ;Backup r8
+    72 0000000A 4151                    push r9                                                     ;Backup r9
+    73 0000000C 4152                    push r10                                                    ;Backup r10
+    74 0000000E 4153                    push r11                                                    ;Backup r11
+    75 00000010 4154                    push r12                                                    ;Backup r12
+    76 00000012 4155                    push r13                                                    ;Backup r13
+    77 00000014 4156                    push r14                                                    ;Backup r14
+    78 00000016 4157                    push r15                                                    ;Backup r15
+    79 00000018 53                      push rbx                                                    ;Backup rbx
+    80 00000019 9C                      pushf                                                       ;Backup rflags
+    81                                  
+    82                                  ;Registers rax, rip, and rsp are usually not backed up.
+    83 0000001A 6A00                    push qword 0
+    84                                  
+    85                                  
+    86                                  ;Display a welcome message to the viewer.
+    87 0000001C B800000000              mov rax, 0                     ;A zero in rax means printf uses no data from xmm registers.
+    88 00000021 48BF-                   mov rdi, welcome               ;"The Assembly function floatio has begun execution"
+    88 00000023 [0000000000000000] 
+    89 0000002B E8(00000000)            call printf
+    90                                  
+    91                                  ;============= Begin section to input exactly one float number ========================================================
+    92 00000030 6A00                    push qword 0
+    93                                  ;Display a prompt message asking for inputs
+    94 00000032 B800000000              mov rax, 0
+    95 00000037 48BF-                   mov rdi, input1prompt          ;"Please input 1 floating point numbers using the keyboard: "
+    95 00000039 [3300000000000000] 
+    96 00000041 E8(00000000)            call printf
+    97 00000046 58                      pop rax
+    98                                  
+    99                                  ;Begin the scanf block
+   100 00000047 6A00                    push qword 0
+   101 00000049 B800000000              mov rax, 0
+   102 0000004E 48BF-                   mov rdi, one_float_format
+   102 00000050 [A201000000000000] 
+   103 00000058 4889E6                  mov rsi, rsp
+   104 0000005B E8(00000000)            call scanf
+   105 00000060 F2440F101424            movsd xmm10, [rsp]
+   106                                  
+   107                                  ;Display one float number
+   108 00000066 B801000000              mov rax, 1                     ;printf will need access to thhis many 
+   109 0000006B 48BF-                   mov rdi, output_one_float      ;"The one number is %5.3lf"
+   109 0000006D [B801000000000000] 
+   110 00000075 F2410F10C2              movsd xmm0, xmm10
+   111 0000007A E8(00000000)            call printf
+   112                                  
+   113 0000007F 58                      pop rax                        ;Reverse the push in the scanf block
+   114                                  ;============= End of section to input one float number ===============================================================
+   115                                  
+   116                                  
+   117                                  ;============= Begin section to input two float numbers using one call to scanf =======================================
+   118                                  ;Display a prompt message asking for inputs
+   119 00000080 6A63                    push qword 99
+   120 00000082 B800000000              mov rax, 0
+   121 00000087 48BF-                   mov rdi, input2prompt          ;"Please input 2 floating point numbers using the keyboard: "
+   121 00000089 [8B00000000000000] 
+   122 00000091 E8(00000000)            call printf
+   123 00000096 58                      pop rax
+   124                                  
+   125                                  
+   126 00000097 6A63                    push qword 99 ;Get on boundary
+   127                                  ;Create space for 2 float numbers
+   128 00000099 6AFF                    push qword -1
+   129 0000009B 6AFE                    push qword -2
+   130 0000009D B800000000              mov rax, 0
+   131 000000A2 48BF-                   mov rdi, two_float_format      ;"%lf%lf"
+   131 000000A4 [A601000000000000] 
+   132 000000AC 4889E6                  mov rsi, rsp                   ;rsi points to first quadword on the stack
+   133 000000AF 4889E2                  mov rdx, rsp
+   134 000000B2 4883C208                add rdx, 8                     ;rdx points to second quadword on the stack
+   135 000000B6 E8(00000000)            call scanf
+   136                                  
+   137 000000BB F2440F102424            movsd xmm12, [rsp]
+   138 000000C1 F2440F106C2408          movsd xmm13, [rsp+8]
+   139 000000C8 58                      pop rax                        ;Reverse the previous "push qword -2"
+   140 000000C9 58                      pop rax                        ;Reverse the previous "push qword -1"
+   141 000000CA 58                      pop rax                        ;Reverse the previous "push qword 99"
+   142                                  
+   143                                  ;Display 2 float numbers
+   144 000000CB 6A63                    push qword 99                  ;Get on the boundary
+   145 000000CD B802000000              mov rax, 2
+   146 000000D2 48BF-                   mov rdi, output_two_float
+   146 000000D4 [D201000000000000] 
+   147 000000DC F2410F10C4              movsd xmm0, xmm12
+   148 000000E1 F2410F10CD              movsd xmm1, xmm13
+   149 000000E6 E8(00000000)            call printf
+   150 000000EB 58                      pop rax                        ;Reverse previous "push qword 99"
+   151                                  
+   152                                  ;============= End of section to input two float numbers ==============================================================
+   153                                  
+   154                                  
+   155                                  ;============= Begin section to input three float numbers using only one call to scanf ================================
+   156                                  
+   157                                  ;Display a prompt message asking for inputs (The next block of instructions)
+   158 000000EC 6A63                    push qword 99
+   159 000000EE B800000000              mov rax, 0
+   160 000000F3 48BF-                   mov rdi, input3prompt          ;"Please input 3 floating point numbers separated by ws and press enter.  Do not press cntl+d: "
+   160 000000F5 [E900000000000000] 
+   161 000000FD E8(00000000)            call printf
+   162 00000102 58                      pop rax
+   163                                  
+   164                                  ;Input 3 float numbers (The next block of instructions)
+   165 00000103 6AFF                    push qword -1
+   166 00000105 6AFE                    push qword -2
+   167 00000107 6AFD                    push qword -3
+   168 00000109 B800000000              mov rax, 0
+   169 0000010E 48BF-                   mov rdi, three_float_format  ;"%lf%lf%lf"
+   169 00000110 [AE01000000000000] 
+   170 00000118 4889E6                  mov rsi, rsp                   ;rsi points to first quadword on the stack
+   171 0000011B 4889E2                  mov rdx, rsp
+   172 0000011E 4883C208                add rdx, 8                     ;rdx points to second quadword on the stack
+   173 00000122 4889E1                  mov rcx, rsp
+   174 00000125 4883C110                add rcx, 16                    ;rcx points to third quadword on the stack
+   175 00000129 E8(00000000)            call scanf
+   176 0000012E F20F102C24              movsd xmm5, [rsp]
+   177 00000133 F20F10742408            movsd xmm6, [rsp+8]
+   178 00000139 F20F107C2410            movsd xmm7, [rsp+16]
+   179 0000013F 58                      pop rax                        ;Reverse the previous "push qword -3"
+   180 00000140 58                      pop rax                        ;Reverse the previous "push qword -2"
+   181 00000141 58                      pop rax                        ;Reverse the previous "push qword -1"
+   182                                  
+   183                                  ;============= End of the section that inputs three number using one call to scanf ====================================
+   184                                  
+   185                                  
+   186                                  ;============= Begin section that organizes the three recently inputted numbers =======================================
+   187                                  
+   188                                  ;Sort out the mess of 3 numbers
+   189 00000142 660F2EEE                ucomisd xmm5, xmm6             ;Compare two floating point numbers
+   190 00000146 760C                    jbe next1
+   191 00000148 F20F10CD                   movsd xmm1, xmm5
+   192 0000014C F20F10EE                   movsd xmm5, xmm6
+   193 00000150 F20F10F1                   movsd xmm6, xmm1
+   194                                  next1:
+   195 00000154 660F2EEF                ucomisd xmm5, xmm7             ;Compare two floating point numbers
+   196 00000158 760C                    jbe next2
+   197 0000015A F20F10CD                   movsd xmm1, xmm5
+   198 0000015E F20F10EF                   movsd xmm5, xmm7
+   199 00000162 F20F10F9                   movsd xmm7, xmm1
+   200                                  next2:
+   201 00000166 660F2EF7                ucomisd xmm6, xmm7             ;Compare two floating point numbers
+   202 0000016A 760C                    jbe next3
+   203 0000016C F20F10CE                   movsd xmm1, xmm6
+   204 00000170 F20F10F7                   movsd xmm6, xmm7
+   205 00000174 F20F10F9                   movsd xmm7, xmm1
+   206                                  next3:
+   207                                  
+   208                                  ;Display the three numbers (the next block of instructions)
+   209 00000178 6A63                    push qword 99                  ;Get on the boundary
+   210 0000017A B803000000              mov rax, 3                     ;printf will need to access this many SSE registers.
+   211 0000017F 48BF-                   mov rdi, output_three_float    ;"The three numbers in ascending order are %7.5lf, %7.5lf, and %7.5lf"
+   211 00000181 [FA01000000000000] 
+   212 00000189 F20F10C5                movsd xmm0, xmm5
+   213 0000018D F20F10CE                movsd xmm1, xmm6
+   214 00000191 F20F10D7                movsd xmm2, xmm7
+   215 00000195 F2440F10FF              movsd xmm15, xmm7              ;Make a backup copy
+   216 0000019A E8(00000000)            call printf
+   217 0000019F 58                      pop rax                        ;Reverse previous "push qword 99"
+   218                                  
+   219                                  ;============= End of organizing the three numbers ====================================================================
+   220                                  
+   221                                  
+   222                                  ;============= Prepare to exit from this program ======================================================================
+   223                                  
+   224                                  ;Display good-bye message (the next block of instructions)
+   225 000001A0 B800000000              mov rax, 0
+   226 000001A5 48BF-                   mov rdi, good_bye              ;"The floating module will return the large number to the caller.  ....."
+   226 000001A7 [4A01000000000000] 
+   227 000001AF E8(00000000)            call printf
+   228                                  
+   229 000001B4 58                      pop rax                        ;Reverse the push near the beginning of this asm function.
+   230                                  
+   231 000001B5 F2410F10C7              movsd xmm0, xmm15              ;Select the largest value for return to caller.
+   232                                  
+   233                                  ;===== Restore original values to integer registers ===================================================================
+   234 000001BA 9D                      popf                                                        ;Restore rflags
+   235 000001BB 5B                      pop rbx                                                     ;Restore rbx
+   236 000001BC 415F                    pop r15                                                     ;Restore r15
+   237 000001BE 415E                    pop r14                                                     ;Restore r14
+   238 000001C0 415D                    pop r13                                                     ;Restore r13
+   239 000001C2 415C                    pop r12                                                     ;Restore r12
+   240 000001C4 415B                    pop r11                                                     ;Restore r11
+   241 000001C6 415A                    pop r10                                                     ;Restore r10
+   242 000001C8 4159                    pop r9                                                      ;Restore r9
+   243 000001CA 4158                    pop r8                                                      ;Restore r8
+   244 000001CC 59                      pop rcx                                                     ;Restore rcx
+   245 000001CD 5A                      pop rdx                                                     ;Restore rdx
+   246 000001CE 5E                      pop rsi                                                     ;Restore rsi
+   247 000001CF 5F                      pop rdi                                                     ;Restore rdi
+   248 000001D0 5D                      pop rbp                                                     ;Restore rbp
+   249                                  
+   250 000001D1 C3                      ret
+   251                                  
+   252                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
