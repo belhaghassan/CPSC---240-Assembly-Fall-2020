@@ -60,7 +60,7 @@ int main()
 
 	// Prints out value calculated in circle as a floating-point number and
 	// as a hexidecimal number.
-	printf("The main recieved this number: ");
+	printf("The main recieved this number: %lf", result_code);
 
 	// Prints out goodbye message.
 	printf("\n%s","Have a nice day. Main will now return 0 to the operating system.\n");
