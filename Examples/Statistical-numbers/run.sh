@@ -16,15 +16,15 @@ rm *.o
 rm *.out
 
 echo "Assemble the program statistics.asm."
-nasm -f elf64 -l statistics.lis -o statistics.o statistics.asm
+nasm -f elf64 -l statistics.lis -o statistics.o statistics.asm -gdwarf
 
 echo "Compile the C++ main function according to C++ standard 2014"
-g++ -c -Wall -std=c++14 -o stats.o -m64 -no-pie -fno-pie stats.cpp
+g++ -c -Wall -std=c++14 -o stats.o -m64 -no-pie -fno-pie stats.cpp -g
 
 echo "Link 2 object files"
-g++ -m64 -std=c++14 stats.o -fno-pie -no-pie -o stats.out statistics.o
+g++ -m64 -std=c++14 stats.o -fno-pie -no-pie -o stats.out statistics.o -g
 
 echo "Run the program \"Statistical Numbers\""
-./stats.out
+gdb ./stats.out
 
 echo "The bash file has terminated."

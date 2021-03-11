@@ -1,0 +1,269 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;Program name: "Statistical Numbers".  This program demonstrates how to clear the state of the input stream following an    *
+     3                                  ;action that placed it into a failed state.  Clearing the failed state is necessary in order to continue receiving inputs   *
+     4                                  ;from the standard input stream.  Copyright (C) 2019 Floyd Holliday.                                                        *
+     5                                  ;This program is free software: you may redistribute it and/or modify it under the terms of the GNU General Public License  *
+     6                                  ;version 3 as published by the Free Software Foundation.                                                                    *
+     7                                  ;This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied         *
+     8                                  ;warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+     9                                  ;A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.                           *
+    10                                  ;****************************************************************************************************************************
+    11                                  
+    12                                  ;Author: F. Holliday
+    13                                  ;Author email: holliday@fullerton.edu
+    14                                  
+    15                                  ;Program name: Statistical Numbers
+    16                                  ;Programming languages: C++ and X86
+    17                                  ;Date of last modification: 2019-Sep-08
+    18                                  ;Files in the program: stats.cpp, statistics.asm, run.sh
+    19                                  ;Status: Testing has been successful
+    20                                  ;Future: Separate some of the functionality in statistics.asm into one, or two, or more files containing functions.
+    21                                  
+    22                                  ;Declare the names of function defined outside of this file that will be called from within this file.
+    23                                  extern scanf 
+    24                                  extern printf
+    25                                  extern getchar
+    26                                  extern stdin
+    27                                  extern clearerr
+    28                                  
+    29                                  global average               ;Allow this module (function) to be called from outside of this file.
+    30                                  
+    31                                  segment .data
+    32 00000000 0A57652077696C6C20-     introduction db 10, "We will compute the mean for you using only integers.", 10, 0
+    32 00000009 636F6D707574652074-
+    32 00000012 6865206D65616E2066-
+    32 0000001B 6F7220796F75207573-
+    32 00000024 696E67206F6E6C7920-
+    32 0000002D 696E7465676572732E-
+    32 00000036 0A00               
+    33 00000038 456E74657220612073-     prompt_message db "Enter a sequence of long integers.  After each integer enter white space.  After the last white space press enter followed by Cntl+D.",10, 
+    33 00000041 657175656E6365206F-
+    33 0000004A 66206C6F6E6720696E-
+    33 00000053 7465676572732E2020-
+    33 0000005C 416674657220656163-
+    33 00000065 6820696E7465676572-
+    33 0000006E 20656E746572207768-
+    33 00000077 697465207370616365-
+    33 00000080 2E2020416674657220-
+    33 00000089 746865206C61737420-
+    33 00000092 776869746520737061-
+    33 0000009B 636520707265737320-
+    33 000000A4 656E74657220666F6C-
+    33 000000AD 6C6F77656420627920-
+    33 000000B6 436E746C2B442E0A   
+    34 000000BE 496620796F75206861-               db "If you have no data press Cntl+d now to exit.", 10, 0
+    34 000000C7 7665206E6F20646174-
+    34 000000D0 612070726573732043-
+    34 000000D9 6E746C2B64206E6F77-
+    34 000000E2 20746F20657869742E-
+    34 000000EB 0A00               
+    35 000000ED 0A0A546865206E756D-     computed_results db 10, 10, "The number of numbers entered was %ld and the mean is %ld.", 10, 0
+    35 000000F6 626572206F66206E75-
+    35 000000FF 6D6265727320656E74-
+    35 00000108 657265642077617320-
+    35 00000111 256C6420616E642074-
+    35 0000011A 6865206D65616E2069-
+    35 00000123 7320256C642E0A00   
+    36 0000012B 54686520696E746567-     meanMsg db "The integer mean was %ld.", 10, 10, 0
+    36 00000134 6572206D65616E2077-
+    36 0000013D 617320256C642E0A0A-
+    36 00000146 00                 
+    37 00000147 446F20796F75206861-     query_message db "Do you have sets of integers to process?",10,
+    37 00000150 76652073657473206F-
+    37 00000159 6620696E7465676572-
+    37 00000162 7320746F2070726F63-
+    37 0000016B 6573733F0A         
+    38 00000170 456E746572696E6720-                   db "Entering cntl+d twice has the same outcome as entering n.  Please enter your response (y or n or cntl+d):", 0
+    38 00000179 636E746C2B64207477-
+    38 00000182 696365206861732074-
+    38 0000018B 68652073616D65206F-
+    38 00000194 7574636F6D65206173-
+    38 0000019D 20656E746572696E67-
+    38 000001A6 206E2E2020506C6561-
+    38 000001AF 736520656E74657220-
+    38 000001B8 796F75722072657370-
+    38 000001C1 6F6E7365202879206F-
+    38 000001CA 72206E206F7220636E-
+    38 000001D3 746C2B64293A00     
+    39 000001DA 0A0A5061747269636B-     goodbye_message1 db 10, 10, "Patrick Henry hopes you liked your means. Please come again.", 10, 0
+    39 000001E3 2048656E727920686F-
+    39 000001EC 70657320796F75206C-
+    39 000001F5 696B656420796F7572-
+    39 000001FE 206D65616E732E2050-
+    39 00000207 6C6561736520636F6D-
+    39 00000210 6520616761696E2E0A-
+    39 00000219 00                 
+    40 0000021A 5468697320736F6674-     goodbye_message2 db "This software will return the last mean to the driver program. Bye", 0
+    40 00000223 776172652077696C6C-
+    40 0000022C 2072657475726E2074-
+    40 00000235 6865206C617374206D-
+    40 0000023E 65616E20746F207468-
+    40 00000247 652064726976657220-
+    40 00000250 70726F6772616D2E20-
+    40 00000259 42796500           
+    41                                  
+    42 0000025D 257300                  stringformat db "%s", 0
+    43 00000260 256C6400                numberformat db "%ld", 0
+    44                                  
+    45                                  segment .bss                  ;Location were uninitialized arrays are declared.
+    46                                  ;Currently empty
+    47                                  
+    48                                  segment .text
+    49                                  average:
+    50                                  
+    51                                  ;Back up all the GPR for the benefit of any function which may call this one.
+    52 00000000 55                      push rbp
+    53 00000001 4889E5                  mov rbp, rsp
+    54 00000004 53                      push rbx
+    55 00000005 51                      push rcx
+    56 00000006 52                      push rdx
+    57 00000007 57                      push rdi
+    58 00000008 56                      push rsi
+    59 00000009 4150                    push r8
+    60 0000000B 4151                    push r9
+    61 0000000D 4152                    push r10
+    62 0000000F 4153                    push r11
+    63 00000011 4154                    push r12
+    64 00000013 4155                    push r13
+    65 00000015 4156                    push r14
+    66 00000017 4157                    push r15
+    67                                  
+    68 00000019 49C7C4FFFFFFFF          mov r12,-1                              ;Default value to be returned when no data are inputted.
+    69                                  
+    70                                  ;=======================================Initial Message============================================
+    71 00000020 B800000000              mov qword rax, 0
+    72 00000025 48BF-                   mov rdi, stringformat
+    72 00000027 [5D02000000000000] 
+    73 0000002F 48BE-                   mov rsi, introduction
+    73 00000031 [0000000000000000] 
+    74 00000039 E8(00000000)            call printf
+    75                                  
+    76                                  ;=======================================Query Message==============================================
+    77 0000003E B800000000              mov rax, 0
+    78 00000043 48BF-                   mov rdi, query_message
+    78 00000045 [4701000000000000] 
+    79 0000004D E8(00000000)            call printf
+    80                                  
+    81                                  ;=======================================Get the answer from customer==============================
+    82 00000052 6A00                    push qword 0
+    83 00000054 B800000000              mov rax, 0
+    84 00000059 E8(00000000)            call getchar
+    85 0000005E 4989C6                  mov r14,rax
+    86 00000061 58                      pop rax
+    87                                  
+    88 00000062 6A00                    push qword 0
+    89 00000064 B800000000              mov rax, 0
+    90 00000069 E8(00000000)            call getchar
+    91 0000006E 58                      pop rax
+    92                                  
+    93                                  begin_outer_loop:;======================Begin outer loop==========================================
+    94 0000006F 4983FE79                cmp r14,'y'
+    95 00000073 0F85AA000000            jne conclusion
+    96                                  
+    97                                  ;=======================================Begin inner loop==========================================
+    98                                     ;Set counter and accumulator to zero
+    99 00000079 41BF00000000               mov r15, 0                             ;r15 is the counter
+   100 0000007F 41BD00000000               mov r13, 0                             ;r13 ia the accumulator
+   101                                  
+   102                                     ;Display instructions for entering integers
+   103 00000085 B800000000                 mov qword rax, 0
+   104 0000008A 48BF-                      mov rdi, stringformat
+   104 0000008C [5D02000000000000] 
+   105 00000094 48BE-                      mov rsi, prompt_message                ;"Enter a sequence of long integers.  After each integer enter white space."
+   105 00000096 [3800000000000000] 
+   106 0000009E E8(00000000)               call printf
+   107                                  
+   108                                     input_numbers:
+   109                                  
+   110                                     ;Input one integer or one cntl+D
+   111 000000A3 B800000000                 mov rax, 0
+   112 000000A8 48BF-                      mov rdi, numberformat
+   112 000000AA [6002000000000000] 
+   113 000000B2 6A00                       push qword 0
+   114 000000B4 4889E6                     mov rsi, rsp
+   115 000000B7 E8(00000000)               call scanf
+   116                                  
+   117                                     ;Check for possible cntl+D indicating end of inputs
+   118 000000BC 4898                       cdqe
+   119 000000BE 4883F8FF                   cmp rax, -1
+   120 000000C2 7409                       je exit_inner_loop
+   121 000000C4 58                         pop rax
+   122 000000C5 4901C5                     add r13, rax
+   123 000000C8 49FFC7                     inc r15
+   124                                  
+   125 000000CB EBD6                       jmp input_numbers
+   126                                  
+   127                                     exit_inner_loop: ;===================End inner loop=============================================
+   128                                  
+   129                                  
+   130                                  
+   131 000000CD 58                      pop rax                                 ;Correction for unbalanced pushes and pops in preceding loop
+   132                                  
+   133                                  ;Compute mean
+   134 000000CE 4C89E8                  mov rax, qword r13
+   135 000000D1 4899                    cqo
+   136 000000D3 49F7FF                  idiv qword r15                      ;r15 = counter
+   137 000000D6 4989C4                  mov r12, rax                        ;The mean is now in r12
+   138                                  
+   139                                  ;Display the count and the mean
+   140 000000D9 B800000000              mov rax, 0
+   141 000000DE 48BF-                   mov rdi, computed_results
+   141 000000E0 [ED00000000000000] 
+   142 000000E8 4C89FE                  mov rsi, r15
+   143 000000EB 4C89E2                  mov rdx, r12
+   144 000000EE E8(00000000)            call printf
+   145                                  
+   146                                  ;=======================================Query Message==============================================
+   147 000000F3 B800000000              mov rax, 0
+   148 000000F8 48BF-                   mov rdi, query_message                  ;"Do you have sets of integers to process (y or n)?"
+   148 000000FA [4701000000000000] 
+   149 00000102 E8(00000000)            call printf
+   150                                  
+   151                                  ;=======================================Get the answer from customer==============================
+   152                                  ;It is expected that the user will input either y <enter> or n <enter>.  In the following 
+   153                                  ;instructions first the character is read and saved in r14, then the <enter> is removed from the
+   154                                  ;input stream and is discarded.
+   155 00000107 B800000000              mov rax, 0
+   156 0000010C E8(00000000)            call getchar
+   157 00000111 4989C6                  mov r14,rax
+   158 00000114 B800000000              mov rax, 0
+   159 00000119 E8(00000000)            call getchar
+   160                                  
+   161 0000011E E94CFFFFFF              jmp begin_outer_loop
+   162                                  
+   163                                  ;===== Output final messages ======================================================================
+   164                                  conclusion:
+   165 00000123 B800000000              mov qword rax, 0
+   166 00000128 48BF-                   mov rdi, stringformat
+   166 0000012A [5D02000000000000] 
+   167 00000132 48BE-                   mov rsi, goodbye_message1               ;"Patrick Henry hopes you liked your means.
+   167 00000134 [DA01000000000000] 
+   168 0000013C E8(00000000)            call printf
+   169                                  
+   170 00000141 B800000000              mov qword rax, 0
+   171 00000146 48BF-                   mov rdi, stringformat
+   171 00000148 [5D02000000000000] 
+   172 00000150 48BE-                   mov rsi, goodbye_message2               ;"This software will return the last mean to the driver program. Bye"
+   172 00000152 [1A02000000000000] 
+   173 0000015A E8(00000000)            call printf
+   174                                  
+   175 0000015F 4C89E0                  mov rax, r12                            ;The computed mean was saved in r12.  Now return that mean to the caller.
+   176                                  
+   177 00000162 415F                    pop r15
+   178 00000164 415E                    pop r14
+   179 00000166 415D                    pop r13
+   180 00000168 415C                    pop r12
+   181 0000016A 415B                    pop r11
+   182 0000016C 415A                    pop r10
+   183 0000016E 4159                    pop r9
+   184 00000170 4158                    pop r8
+   185 00000172 5E                      pop rsi
+   186 00000173 5F                      pop rdi
+   187 00000174 5A                      pop rdx
+   188 00000175 59                      pop rcx
+   189 00000176 5B                      pop rbx
+   190 00000177 5D                      pop rbp
+   191                                  
+   192 00000178 C3                      ret
+   193                                  
+   194                                  

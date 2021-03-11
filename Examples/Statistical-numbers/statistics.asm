@@ -79,11 +79,16 @@ mov rdi, query_message
 call printf
 
 ;=======================================Get the answer from customer==============================
+push qword 0
 mov rax, 0
 call getchar
 mov r14,rax
+pop rax
+
+push qword 0
 mov rax, 0
 call getchar
+pop rax
 
 begin_outer_loop:;======================Begin outer loop==========================================
 cmp r14,'y'

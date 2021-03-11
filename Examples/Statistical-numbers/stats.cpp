@@ -21,12 +21,25 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 
 extern "C" long int average();
 
 int main(int argc, char* argv[])
 {
  long int mean = -999;
+ double w = 2.0;
+ double a[5] = {2.0625, 4.25, 9.75, 12.125, 33.375};
+ a[0] = -a[0];
+ double *b = new double[5];
+ b[0]=4.5;
+ b[1]=5.5;
+ b[2]=6.5;
+ b[3]=7.5;
+ double *p = (double *)malloc(4*sizeof(double));
+ *(p+0)= -w;
+ *(p+1)= -3.1;
+ 
  printf("%s\n", "Welcome to Statistical Numbers");
  printf("%s\n", "Brought to you by a group of students enrolled in 240");
  mean = average();
