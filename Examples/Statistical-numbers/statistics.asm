@@ -44,6 +44,7 @@ numberformat db "%ld", 0
 
 segment .bss                  ;Location were uninitialized arrays are declared.
 ;Currently empty
+myarray resq 8
 
 segment .text
 average:
