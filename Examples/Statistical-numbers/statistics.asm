@@ -42,6 +42,7 @@ goodbye_message2 db "This software will return the last mean to the driver progr
 stringformat db "%s", 0
 numberformat db "%ld", 0
 
+testarray dq 13, 54, 22, 9, 3, 5
 segment .bss                  ;Location were uninitialized arrays are declared.
 ;Currently empty
 myarray resq 8
